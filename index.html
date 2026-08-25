@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>POIDH Pulse — live radar for POIDH bounties</title>
+<meta name="description" content="A dependency-free, single-file radar for open POIDH bounties across Ethereum, Base, Arbitrum and Degen. Snapshot index + live on-demand bounty data.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230f1115'/%3E%3Cpath d='M4 18h5l3-9 4 16 3-7h9' stroke='%234f7cff' stroke-width='2.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<style>
+  :root{
+    --bg:#0b0d12;--bg2:#10131a;--card:#151923;--card2:#1a1f2c;--line:#242a38;
+    --tx:#e8ecf4;--mut:#8a94a8;--acc:#4f7cff;--acc2:#37e0a8;--warn:#ffb454;--bad:#ff6470;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--tx);font:15px/1.45 ui-sans-serif,system-ui,"Segoe UI",Roboto,sans-serif}
+  a{color:var(--acc);text-decoration:none} a:hover{text-decoration:underline}
+  .wrap{max-width:1060px;margin:0 auto;padding:18px 14px 60px}
+  header.hero{padding:26px 0 10px;display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;justify-content:space-between}
+  h1{font-size:30px;margin:0;letter-spacing:-.5px}
+  h1 .pulse{background:linear-gradient(90deg,var(--acc),var(--acc2));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .sub{color:var(--mut);max-width:640px;margin-top:6px}
+  .stats{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0 6px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 14px;min-width:110px}
+  .stat .v{font-size:20px;font-weight:700}
+  .stat .k{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.8px}
+  .bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:14px 0}
+  input[type=search],select{background:var(--card);border:1px solid var(--line);color:var(--tx);border-radius:10px;padding:9px 12px;font-size:14px;outline:none}
+  input[type=search]{flex:1;min-width:180px}
+  .chip{background:var(--card);border:1px solid var(--line);color:var(--mut);border-radius:999px;padding:7px 13px;font-size:13px;cursor:pointer;user-select:none}
+  .chip.on{color:#fff;border-color:var(--acc);background:linear-gradient(180deg,#182338,#131a29)}
+  .meta-line{color:var(--mut);font-size:12.5px;margin:2px 0 14px;display:flex;gap:14px;flex-wrap:wrap}
+  ol.cards{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+  li.b{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:13px 15px;transition:border-color .15s, transform .05s}
+  li.b:hover{border-color:#33405c}
+  .rowtop{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+  .t{font-weight:650;font-size:15.5px;cursor:pointer}
+  .val{text-align:right;white-space:nowrap}
+  .eth{font-weight:750;font-size:16px}
+  .usd{color:var(--mut);font-size:12.5px}
+  .tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px;align-items:center}
+  .tag{font-size:11px;letter-spacing:.4px;text-transform:uppercase;border-radius:6px;padding:2.5px 7px;border:1px solid var(--line);color:var(--mut)}
+  .tag.chain-base{color:#5aa2ff;border-color:#274a80}
+  .tag.chain-mainnet{color:#c9baff;border-color:#463a78}
+  .tag.chain-arbitrum{color:#6fe3d1;border-color:#1f6157}
+  .tag.chain-degen{color:#e79aff;border-color:#6d3278}
+  .tag.live-ok{color:var(--acc2);border-color:#1f5b46}
+  .tag.warn{color:var(--warn);border-color:#6b4c1d}
+  .drawer{display:none;background:var(--bg2);border:1px solid var(--line);border-radius:14px;padding:16px;margin-top:4px}
+  .drawer.open{display:block}
+  .desc{white-space:pre-wrap;color:#c6cedd;font-size:14px;max-height:340px;overflow:auto;border-left:3px solid var(--line);padding-left:12px;margin:10px 0}
+  .btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .btn{display:inline-block;background:linear-gradient(180deg,#2b62e8,#204bc0);border:none;color:#fff;font-weight:600;border-radius:10px;padding:9px 14px;cursor:pointer;font-size:13.5px}
+  .btn.sec{background:var(--card2);color:var(--tx);border:1px solid var(--line)}
+  .foot{margin-top:34px;color:var(--mut);font-size:13px;line-height:1.6}
+  .foot code{background:var(--card);border:1px solid var(--line);padding:1px 6px;border-radius:6px;font-size:12px}
+  .skel{color:var(--mut);text-align:center;padding:30px 0}
+  @media(max-width:640px){ h1{font-size:24px} .stat{min-width:90px;flex:1} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <div>
+      <h1>POIDH <span class="pulse">Pulse</span></h1>
+      <div class="sub">A live radar for open <a href="https://poidh.xyz" rel="noopener">poidh.xyz</a> bounties across four chains. Zero backend, zero dependencies — a static file with an embedded snapshot, plus on-demand <em>live</em> bounty data pulled straight from poidh's public <code style="color:var(--mut)">/data</code> endpoints.</div>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="v" id="stCount">–</div><div class="k">open bounties</div></div>
+      <div class="stat"><div class="v" id="stEth">–</div><div class="k">ETH escrowed</div></div>
+      <div class="stat"><div class="v" id="stUsd">–</div><div class="k">approx. USD</div></div>
+    </div>
+  </header>
+
+  <div class="bar">
+    <input type="search" id="q" placeholder="Search titles… (e.g. poap, farcaster, video)">
+    <select id="sort">
+      <option value="usd">Sort: value ↓</option>
+      <option value="new">Sort: newest</option>
+      <option value="end">Sort: deadline soon</option>
+    </select>
+    <select id="chainSel">
+      <option value="">All chains</option>
+    </select>
+    <span class="chip" id="hideIp">hide in-progress</span>
+  </div>
+  <div class="meta-line">
+    <span id="snapAge"></span><span id="shown"></span>
+  </div>
+
+  <ol class="cards" id="list"></ol>
+
+  <footer class="foot">
+    <strong>How this stays decentralized:</strong> the index above is an embedded snapshot committed straight into this static file (see
+    <code>.github/workflows/refresh.yml</code> — a scheduled GitHub Action re-scrapes poidh's public API and commits fresh data; no server of mine exists or is needed).
+    Whenever you open a bounty here, its description &amp; status are re-fetched <em>live</em> from
+    <code>poidh.xyz/{chain}/bounty/{id}/data</code> — CORS-open, cache-light, unstoppable.
+    Built for the <a href="#" id="selfLink">POIDH Showcase bounty</a>. Claim anything directly on <a href="https://poidh.xyz">poidh.xyz</a>.
+  </footer>
+</div>
+
+<script>
+<!--SNAPSHOT:START-->
+const SNAPSHOT = {"generatedAt":"2026-08-25T20:21:28.506Z","ethUsd":2459.37,"count":94,"bounties":[{"i":1382,"c":"degen","t":"secret menu item 27 chars plain words only by @mr94t3z","a":1000,"ch":666666666,"mp":true,"ip":true,"d":null,"ca":"2026-04-20T17:13:04.000Z"},{"i":1251,"c":"base","t":"GM Farcaster Sponsor Referral Bounty","a":0.521,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-06-17T20:33:07.000Z"},{"i":24,"c":"mainnet","t":"Build a CELL hardware wallet from scratch and sign with it","a":0.44162,"ch":1,"mp":true,"ip":true,"d":null,"ca":"2026-08-23T03:00:47.000Z"},{"i":327,"c":"arbitrum","t":"Correct Terminal-Bench 2.1 run for DeepSeek-V4-Flash","a":0.16,"ch":42161,"mp":true,"ip":true,"d":null,"ca":"2026-08-21T22:58:18.000Z"},{"i":21,"c":"mainnet","t":"Warplets URL -> IRL","a":0.0845,"ch":1,"mp":true,"ip":true,"d":null,"ca":"2026-08-04T17:27:59.000Z"},{"i":1190,"c":"base","t":"Interview a Politician About Crypto for The /⁠politics Network","a":0.0827,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-06-01T23:05:55.000Z"},{"i":16,"c":"mainnet","t":"Warm Intro to a Crypto VC","a":0.067,"ch":1,"mp":true,"ip":true,"d":null,"ca":"2026-06-26T19:23:23.000Z"},{"i":20,"c":"mainnet","t":"Best Bounty (August 2026) 🏆","a":0.06,"ch":1,"mp":true,"ip":true,"d":null,"ca":"2026-08-01T16:57:11.000Z"},{"i":1334,"c":"base","t":"Build the Onchain POAPs Frontend","a":0.0457,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-08-22T07:40:45.000Z"},{"i":1315,"c":"base","t":"🔎 LetterLoops: The Letter Hunt","a":0.0418,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-08-11T21:22:01.000Z"},{"i":319,"c":"arbitrum","t":"maja does chatgpt poetry","a":0.0413,"ch":42161,"mp":true,"ip":true,"d":null,"ca":"2026-07-27T20:52:34.000Z"},{"i":1306,"c":"base","t":"Build a POIDH Bounty Showcase","a":0.041,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-08-04T23:38:33.000Z"},{"i":328,"c":"arbitrum","t":"DeepSeek-V4-Flash KLD parity measurement","a":0.04,"ch":42161,"mp":true,"ip":true,"d":null,"ca":"2026-08-21T23:03:48.000Z"},{"i":993,"c":"base","t":"hit it grip it and rip it 😤🏌️","a":0.0388,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-01-24T17:31:29.000Z"},{"i":1311,"c":"base","t":"BINARY PIXELS — FIND SOMETHING IN RANDOMNESS","a":0.036,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-08-08T08:55:09.000Z"},{"i":1331,"c":"base","t":"Make Quorum Conversation Threads Visually Obvious","a":0.0315,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-08-21T14:35:39.000Z"},{"i":1322,"c":"base","t":"Find 3 of a Kind","a":0.03013,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-08-17T20:17:53.000Z"},{"i":1305,"c":"base","t":"Share Your Music on Tortoise 🐢","a":0.0295,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-08-04T14:19:37.000Z"},{"i":324,"c":"arbitrum","t":"find a ~30 year old textbook that beats Pangram","a":0.0287,"ch":42161,"mp":true,"ip":true,"d":null,"ca":"2026-08-07T05:07:11.000Z"},{"i":1186,"c":"base","t":"Be A Freedom Fighter In Your Community","a":0.0251,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-06-01T06:10:31.000Z"},{"i":326,"c":"arbitrum","t":"Art, Coffee & Farcaster ☕️🟣","a":0.0245,"ch":42161,"mp":true,"ip":true,"d":null,"ca":"2026-08-20T00:21:59.000Z"},{"i":1326,"c":"base","t":"Farcaster Season 1 & 2 Recap 🎬","a":0.0245,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-08-19T22:19:23.000Z"},{"i":1336,"c":"base","t":"Check Your Blood Pressure 🩺 — Who's the Fittest?","a":0.0241,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-08-24T17:32:13.000Z"},{"i":1330,"c":"base","t":"Best 60s clip from the WaveWarZ Twitch stream","a":0.0238,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-08-21T10:33:45.000Z"},{"i":1328,"c":"base","t":"Slam or Die — Best Skate Bail on SkateHive","a":0.0235,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-08-20T17:58:01.000Z"},{"i":1062,"c":"base","t":"smokingfrog tattoos POIDH ","a":0.023,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-02-26T20:48:11.000Z"},{"i":235,"c":"arbitrum","t":"impossible late flip for poidh 🛹","a":0.023,"ch":42161,"mp":true,"ip":true,"d":null,"ca":"2026-03-17T04:09:44.000Z"},{"i":1332,"c":"base","t":"Clank that Cat!","a":0.023,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-08-21T15:06:53.000Z"},{"i":325,"c":"arbitrum","t":"Test Sieve and Give Us Feedback","a":0.021,"ch":42161,"mp":true,"ip":true,"d":null,"ca":"2026-08-17T23:21:47.000Z"},{"i":1192,"c":"base","t":"Help Fund A Theoretical Neuroscience Paper","a":0.0185,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-06-02T13:22:29.000Z"},{"i":1145,"c":"base","t":"Engage with our video on X","a":0.0135,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-04-23T21:34:55.000Z"},{"i":1093,"c":"base","t":"Farcaster - The Movie (Trailer)","a":0.0125,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-03-19T22:49:05.000Z"},{"i":1316,"c":"base","t":"Found Poetry - make a poem from whatever's in reach","a":0.0122,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-08-12T14:01:47.000Z"},{"i":1108,"c":"base","t":"Win $10 in Among Traitors ","a":0.0122,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-04-01T01:38:21.000Z"},{"i":1106,"c":"base","t":"Battle for the Bronx","a":0.0122,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-03-31T17:38:01.000Z"},{"i":1051,"c":"base","t":"Brian Armstrong tries poidh 📸","a":0.012,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-02-23T18:33:39.000Z"},{"i":1317,"c":"base","t":"Build a Visual Food Quote-Cast Tree","a":0.0115,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-08-12T15:40:19.000Z"},{"i":23,"c":"mainnet","t":"Go To Church","a":0.0113,"ch":1,"mp":true,"ip":true,"d":null,"ca":"2026-08-17T21:19:59.000Z"},{"i":1335,"c":"base","t":"Enter Collective Memory mini app staking challenge","a":0.01,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-08-22T17:52:35.000Z"},{"i":1321,"c":"base","t":"Hot Sauce Hero Image","a":0.0095,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-08-16T17:59:25.000Z"},{"i":1048,"c":"base","t":"Joseph do a kickflip","a":0.008,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-02-21T21:26:29.000Z"},{"i":1088,"c":"base","t":"find a business with a Cascadia flag 🌲","a":0.0077,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-03-11T18:27:23.000Z"},{"i":296,"c":"arbitrum","t":"get out in a forest 🌲🌳🌴🍁","a":0.0075,"ch":42161,"mp":true,"ip":true,"d":null,"ca":"2026-05-01T18:24:11.000Z"},{"i":184,"c":"arbitrum","t":"Adel's for Arbitrum","a":0.007,"ch":42161,"mp":true,"ip":true,"d":null,"ca":"2026-01-24T04:37:41.000Z"},{"i":295,"c":"arbitrum","t":"Highlight A Business That Gives Back 🏬","a":0.007,"ch":42161,"mp":true,"ip":true,"d":null,"ca":"2026-04-30T20:01:50.000Z"},{"i":1309,"c":"base","t":"Photography bounty:Black and white ⚫️⚪️","a":0.0069,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-08-06T21:46:43.000Z"},{"i":1071,"c":"base","t":"Reef Debris Cleanup","a":0.0065,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-03-02T20:07:51.000Z"},{"i":1073,"c":"base","t":"Coral Health Survey Snapshot ","a":0.0065,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-03-02T20:11:05.000Z"},{"i":329,"c":"arbitrum","t":"Feedback for FreeToken","a":0.0065,"ch":42161,"mp":true,"ip":true,"d":null,"ca":"2026-08-23T19:06:22.000Z"},{"i":1074,"c":"base","t":"Coral Health Restoration Snapshot","a":0.0065,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-03-02T20:26:55.000Z"},{"i":1075,"c":"base","t":"Coral Frag Plant","a":0.0054,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-03-02T21:00:49.000Z"},{"i":1078,"c":"base","t":"Debris Eco-Art","a":0.0054,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-03-02T21:11:57.000Z"},{"i":1077,"c":"base","t":"Reef Threat Edu Video","a":0.0054,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-03-02T21:09:57.000Z"},{"i":1076,"c":"base","t":"Group Cleanup Proof","a":0.0054,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-03-02T21:02:17.000Z"},{"i":1146,"c":"base","t":"take a photo in Turkey","a":0.0053,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-04-24T15:38:03.000Z"},{"i":224,"c":"arbitrum","t":"Germany verified 🇩🇪","a":0.0044,"ch":42161,"mp":true,"ip":true,"d":null,"ca":"2026-03-03T23:51:34.000Z"},{"i":222,"c":"arbitrum","t":"Mexico verified 🇲🇽","a":0.0044,"ch":42161,"mp":true,"ip":true,"d":null,"ca":"2026-03-03T23:48:45.000Z"},{"i":223,"c":"arbitrum","t":"Japan verified 🇯🇵","a":0.0044,"ch":42161,"mp":true,"ip":true,"d":null,"ca":"2026-03-03T23:50:03.000Z"},{"i":321,"c":"arbitrum","t":"Build a ship in a bottle ","a":0.00438,"ch":42161,"mp":true,"ip":true,"d":null,"ca":"2026-08-04T18:29:33.000Z"},{"i":1289,"c":"base","t":"MIKOS32 NEEDS A LITTLE HELP","a":0.004,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-07-12T15:32:51.000Z"},{"i":1301,"c":"base","t":"One Thing Web3 Fixed. One Thing It Broke.","a":0.0038,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-07-30T23:40:39.000Z"},{"i":1096,"c":"base","t":"Preach POIDH & We Them Media ","a":0.0034,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-03-21T19:12:21.000Z"},{"i":305,"c":"arbitrum","t":"#busch4busch","a":0.0033,"ch":42161,"mp":true,"ip":true,"d":null,"ca":"2026-05-22T00:08:22.000Z"},{"i":1150,"c":"base","t":"find poidh in Seattle 📍","a":0.0033,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-04-24T19:25:57.000Z"},{"i":1149,"c":"base","t":"find poidh in Seattle 📍","a":0.0033,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-04-24T19:24:49.000Z"},{"i":1333,"c":"base","t":"ZitiCashbox - send $1 to a user at the LATAM Digital Assets Conference","a":0.0029,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-08-21T15:25:25.000Z"},{"i":1152,"c":"base","t":"Louis posts beautiful Glia shell code","a":0.00255,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-04-28T21:11:55.000Z"},{"i":287,"c":"arbitrum","t":"Onchaindare","a":0.002,"ch":42161,"mp":true,"ip":true,"d":null,"ca":"2026-04-14T05:50:45.000Z"},{"i":1124,"c":"base","t":"Show this code in public","a":0.001,"ch":8453,"mp":false,"ip":true,"d":null,"ca":"2026-04-04T06:46:49.000Z"},{"i":1113,"c":"base","t":"Random Act of Kindness - IRL Photo Bounty","a":0.001,"ch":8453,"mp":false,"ip":true,"d":null,"ca":"2026-04-02T15:50:23.000Z"},{"i":1232,"c":"base","t":"Test bounty","a":0.001,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-06-11T23:30:23.000Z"},{"i":1215,"c":"base","t":"Share $Space on X with screenshot — $5","a":0.001,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-06-11T19:13:35.000Z"},{"i":1097,"c":"base","t":"The Hydration Check","a":0.001,"ch":8453,"mp":false,"ip":true,"d":null,"ca":"2026-03-22T04:50:33.000Z"},{"i":1235,"c":"base","t":"Test bounty","a":0.001,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-06-11T23:34:01.000Z"},{"i":1222,"c":"base","t":"Share $Space on X with screenshot — $5","a":0.001,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-06-11T19:14:47.000Z"},{"i":1233,"c":"base","t":"Test bounty","a":0.001,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-06-11T23:31:27.000Z"},{"i":1236,"c":"base","t":"make a split","a":0.001,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-06-11T23:42:03.000Z"},{"i":1209,"c":"base","t":"Share $Space on X with screenshot — $5","a":0.001,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-06-11T19:12:13.000Z"},{"i":1216,"c":"base","t":"Share $Space on X with screenshot — $5","a":0.001,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-06-11T19:13:47.000Z"},{"i":1219,"c":"base","t":"Share $Space on X with screenshot — $5","a":0.001,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-06-11T19:14:15.000Z"},{"i":1128,"c":"base","t":"Show this code in public","a":0.001,"ch":8453,"mp":false,"ip":true,"d":null,"ca":"2026-04-04T08:38:33.000Z"},{"i":1237,"c":"base","t":"make a split","a":0.001,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-06-11T23:42:57.000Z"},{"i":1223,"c":"base","t":"Share $Space on X with screenshot — $5","a":0.001,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-06-11T19:14:55.000Z"},{"i":997,"c":"base","t":"Clean a local green space","a":0.001,"ch":8453,"mp":false,"ip":true,"d":null,"ca":"2026-01-26T02:20:35.000Z"},{"i":1127,"c":"base","t":"Show this code in public","a":0.001,"ch":8453,"mp":false,"ip":true,"d":null,"ca":"2026-04-04T08:23:59.000Z"},{"i":1045,"c":"base","t":"Make a Bounty","a":0.001,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-02-20T21:00:27.000Z"},{"i":1116,"c":"base","t":"Random Act of Kindness - IRL Photo Bounty","a":0.001,"ch":8453,"mp":false,"ip":true,"d":null,"ca":"2026-04-02T19:39:49.000Z"},{"i":999,"c":"base","t":"Ramus Grove Stewardship","a":0.001,"ch":8453,"mp":false,"ip":true,"d":null,"ca":"2026-01-26T07:06:31.000Z"},{"i":1231,"c":"base","t":"Test bounty","a":0.001,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-06-11T23:29:21.000Z"},{"i":1125,"c":"base","t":"Test Bounty","a":0.001,"ch":8453,"mp":false,"ip":true,"d":null,"ca":"2026-04-04T06:47:07.000Z"},{"i":1114,"c":"base","t":"Random Act of Kindness - IRL Photo Bounty","a":0.001,"ch":8453,"mp":false,"ip":true,"d":null,"ca":"2026-04-02T15:59:27.000Z"},{"i":1037,"c":"base","t":"test","a":0.001,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-02-18T01:43:45.000Z"},{"i":1324,"c":"base","t":"test2","a":0.001,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-08-19T02:15:29.000Z"},{"i":998,"c":"base","t":"Ramus Grove Stewardship","a":0.001,"ch":8453,"mp":false,"ip":true,"d":null,"ca":"2026-01-26T07:01:17.000Z"}]};
+<!--SNAPSHOT:END-->
+</script>
+<script>
+const CHAIN_NAME = { 1:'mainnet', 8453:'base', 42161:'arbitrum', 666666666:'degen' };
+const state = { q:'', chain:'', sort:'usd', hideIp:false };
+
+function fmtEth(v){ return (v>=100? v.toFixed(1): v>=1? v.toFixed(3): v.toFixed(4)) + ' Ξ'; }
+function fmtUsd(v){ if(!SNAPSHOT.ethUsd) return null; const u=v*SNAPSHOT.ethUsd; return '$'+(u>=1000? Math.round(u).toLocaleString('en-US'): u.toFixed(0)); }
+function esc(s){ return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+function init(){
+  document.getElementById('stCount').textContent = SNAPSHOT.count;
+  const tot = SNAPSHOT.bounties.reduce((s,b)=>s+b.a,0);
+  document.getElementById('stEth').textContent = fmtEth(tot);
+  document.getElementById('stUsd').textContent = SNAPSHOT.ethUsd ? '$'+Math.round(tot*SNAPSHOT.ethUsd).toLocaleString('en-US') : 'n/a';
+  const gen = new Date(SNAPSHOT.generatedAt);
+  const mins = Math.round((Date.now()-gen)/60000);
+  document.getElementById('snapAge').textContent = `snapshot: ${SNAPSHOT.count} bounties • ${mins<90? mins+' min': Math.round(mins/60)+' h'} old • eth=$${SNAPSHOT.ethUsd}`;
+  const cs = [...new Set(SNAPSHOT.bounties.map(b=>CHAIN_NAME[b.ch]))];
+  const sel = document.getElementById('chainSel');
+  for(const c of cs){ const o=document.createElement('option'); o.value=c; o.textContent=c; sel.appendChild(o); }
+  document.getElementById('q').addEventListener('input',e=>{state.q=e.target.value.toLowerCase();render();});
+  document.getElementById('sort').addEventListener('change',e=>{state.sort=e.target.value;render();});
+  sel.addEventListener('change',e=>{state.chain=e.target.value;render();});
+  document.getElementById('hideIp').addEventListener('click',e=>{state.hideIp=!state.hideIp;e.target.classList.toggle('on');render();});
+  render();
+  routeFromHash();
+  let suppressHash=false;
+  window.addEventListener('hashchange',()=>{ if(suppressHash){ suppressHash=false; return; } routeFromHash(); });
+}
+
+function visible(){
+  let arr = SNAPSHOT.bounties.filter(b=>{
+    if(state.chain && CHAIN_NAME[b.ch]!==state.chain) return false;
+    if(state.hideIp && b.ip) return false;
+    if(state.q && !b.t.toLowerCase().includes(state.q)) return false;
+    return true;
+  });
+  if(state.sort==='usd') arr.sort((x,y)=>y.a-x.a);
+  else if(state.sort==='new'){ const ts=b=>b.ca?Date.parse(b.ca):0; arr.sort((x,y)=>ts(y)-ts(x)); }
+  else { const dl=b=>b.d?Date.parse(b.d):Infinity; arr.sort((x,y)=>dl(x)-dl(y)); }
+  return arr;
+}
+
+function render(){
+  const arr = visible();
+  document.getElementById('shown').textContent = `${arr.length} shown`;
+  const ol = document.getElementById('list');
+  ol.innerHTML='';
+  for(const b of arr){
+    const li=document.createElement('li'); li.className='b'; li.id='b-'+b.i;
+    const usd=fmtUsd(b.a);
+    let dl='';
+    if(b.d){ const ms=Date.parse(b.d)-Date.now();
+      dl = ms>0 ? `<span class="tag warn">ends in ${humanize(ms)}</span>` : `<span class="tag">ended</span>`;
+    }
+    li.innerHTML=`
+      <div class="rowtop">
+        <span class="t" data-id="${b.i}">${esc(b.t)}</span>
+        <span class="val"><span class="eth">${fmtEth(b.a)}</span><br><span class="usd">${usd? '≈ '+usd : ''}</span></span>
+      </div>
+      <div class="tags">
+        <span class="tag chain-${CHAIN_NAME[b.ch]}">${CHAIN_NAME[b.ch]}</span>
+        ${b.mp?'<span class="tag">multiplayer</span>':''}
+        ${b.ip?'<span class="tag">in progress</span>':''}
+        ${dl}
+        <span class="tag" data-live="${b.i}">live: idle</span>
+      </div>
+      <div class="drawer" id="d-${b.i}"></div>`;
+    li.querySelector('.t').addEventListener('click',()=>toggle(b));
+    ol.appendChild(li);
+  }
+}
+
+function humanize(ms){
+  const d=Math.floor(ms/86400000), h=Math.floor(ms%86400000/3600000), m=Math.floor(ms%3600000/60000);
+  if(d>0) return d+'d'+(h? ' '+h+'h':'');
+  if(h>0) return h+'h'+(m? ' '+m+'m':'');
+  return m+'m';
+}
+
+async function toggle(b){
+  const d=document.getElementById('d-'+b.i);
+  const already=d.classList.contains('open');
+  document.querySelectorAll('.drawer.open').forEach(x=>x.classList.remove('open'));
+  if(already){ suppressHash=true; location.hash=''; return; }
+  d.classList.add('open');
+  suppressHash=true;
+  location.hash='b/'+CHAIN_NAME[b.ch]+'/'+b.i;
+  d.innerHTML='<div class="skel">loading…</div>';
+  location.hash='b/'+CHAIN_NAME[b.ch]+'/'+b.i;
+  setTimeout(()=>suppressHash=false,0);
+  const lt=document.querySelector(`[data-live="${b.i}"]`);
+  try{
+    const r=await fetch(`https://poidh.xyz/${CHAIN_NAME[b.ch]}/bounty/${b.i}/data`,{headers:{accept:'application/json'}});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const j=await r.json();
+    lt.textContent='live: ok'; lt.className='tag live-ok';
+    const amt=j.amount!=null? Number(BigInt(j.amount))/1e18 : b.a;
+    d.innerHTML=`
+      <div class="desc">${esc((j.description||'').slice(0,4000))}</div>
+      <div class="btns">
+        <a class="btn" href="https://poidh.xyz/${CHAIN_NAME[b.ch]}/bounty/${b.i}" target="_blank" rel="noopener">Open on poidh.xyz to claim ↗</a>
+        <button class="btn sec" onclick="navigator.clipboard.writeText(location.origin+location.pathname+'#b/${CHAIN_NAME[b.ch]}/${b.i}')">copy deep-link</button>
+      </div>`;
+    if(Math.abs(amt-b.a)>1e-9){ d.insertAdjacentHTML('afterbegin',`<div class="meta-line">live amount: ${fmtEth(amt)}${SNAPSHOT.ethUsd? ' ≈ $'+Math.round(amt*SNAPSHOT.ethUsd).toLocaleString('en-US'):''}</div>`); }
+  }catch(e){
+    lt.textContent='live: failed'; lt.className='tag';
+    d.innerHTML=`<div class="skel">live fetch failed (${esc(String(e).slice(0,80))}) — snapshot only. Open on poidh.xyz for current state.</div>
+      <div class="btns"><a class="btn" href="https://poidh.xyz/${CHAIN_NAME[b.ch]}/bounty/${b.i}" target="_blank" rel="noopener">Open on poidh.xyz ↗</a></div>`;
+  }
+}
+
+function routeFromHash(){
+  const m=location.hash.match(/^#b\/([a-z]+)\/(\d+)$/);
+  if(!m) return;
+  const b=SNAPSHOT.bounties.find(x=>CHAIN_NAME[x.ch]===m[1]&&String(x.i)===m[2]);
+  if(b){
+    const el=document.getElementById('b-'+b.i);
+    const d=document.getElementById('d-'+b.i);
+    if(!d || d.classList.contains('open')) return;
+    if(el) el.scrollIntoView({block:'center'});
+    toggle(b);
+  }
+}
+
+document.getElementById('selfLink').href='https://poidh.xyz/base/bounty/1306';
+init();
+</script>
+</body>
+</html>
