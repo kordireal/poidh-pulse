@@ -32,6 +32,7 @@
   ol.cards{list-style:none;margin:0;padding:0;display:grid;gap:10px}
   li.b{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:13px 15px;transition:border-color .15s, transform .05s}
   li.b:hover{border-color:#33405c}
+  li.b.outlier{border-color:var(--warn);background:#1a1510}
   .rowtop{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
   .t{font-weight:650;font-size:15.5px;cursor:pointer}
   .val{text-align:right;white-space:nowrap}
@@ -45,6 +46,8 @@
   .tag.chain-degen{color:#e79aff;border-color:#6d3278}
   .tag.live-ok{color:var(--acc2);border-color:#1f5b46}
   .tag.warn{color:var(--warn);border-color:#6b4c1d}
+  .tag.bad{color:var(--bad);border-color:#6b1d2a}
+  .tag.outlier{background:#2a1f0a;color:var(--warn);border-color:var(--warn)}
   .drawer{display:none;background:var(--bg2);border:1px solid var(--line);border-radius:14px;padding:16px;margin-top:4px}
   .drawer.open{display:block}
   .desc{white-space:pre-wrap;color:#c6cedd;font-size:14px;max-height:340px;overflow:auto;border-left:3px solid var(--line);padding-left:12px;margin:10px 0}
@@ -54,6 +57,8 @@
   .foot{margin-top:34px;color:var(--mut);font-size:13px;line-height:1.6}
   .foot code{background:var(--card);border:1px solid var(--line);padding:1px 6px;border-radius:6px;font-size:12px}
   .skel{color:var(--mut);text-align:center;padding:30px 0}
+  .banner-warn{background:#1a1510;border:1px solid var(--warn);color:var(--warn);border-radius:10px;padding:10px 14px;margin:14px 0;font-size:13.5px;display:none}
+  .banner-warn.show{display:block}
   @media(max-width:640px){ h1{font-size:24px} .stat{min-width:90px;flex:1} }
 </style>
 </head>
@@ -66,10 +71,12 @@
     </div>
     <div class="stats">
       <div class="stat"><div class="v" id="stCount">–</div><div class="k">open bounties</div></div>
-      <div class="stat"><div class="v" id="stEth">–</div><div class="k">ETH escrowed</div></div>
-      <div class="stat"><div class="v" id="stUsd">–</div><div class="k">approx. USD</div></div>
+      <div class="stat"><div class="v" id="stEth">–</div><div class="k">ETH escrowed <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--mut)">(verified, ETH-only)</span></div></div>
+      <div class="stat"><div class="v" id="stUsd">–</div><div class="k">approx. USD <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--mut)">(verified)</span></div></div>
     </div>
   </header>
+
+  <div id="outlierBanner" class="banner-warn"></div>
 
   <div class="bar">
     <input type="search" id="q" placeholder="Search titles… (e.g. poap, farcaster, video)">
@@ -82,9 +89,10 @@
       <option value="">All chains</option>
     </select>
     <span class="chip" id="hideIp">hide in-progress</span>
+    <span class="chip" id="hideOut">hide outliers</span>
   </div>
   <div class="meta-line">
-    <span id="snapAge"></span><span id="shown"></span>
+    <span id="snapAge"></span><span id="shown"></span><span id="verifyLine"></span>
   </div>
 
   <ol class="cards" id="list"></ol>
@@ -93,7 +101,8 @@
     <strong>How this stays decentralized:</strong> the index above is an embedded snapshot committed straight into this static file (see
     <code>.github/workflows/refresh.yml</code> — a scheduled GitHub Action re-scrapes poidh's public API and commits fresh data; no server of mine exists or is needed).
     Whenever you open a bounty here, its description &amp; status are re-fetched <em>live</em> from
-    <code>poidh.xyz/{chain}/bounty/{id}/data</code> — CORS-open, cache-light, unstoppable.
+    <code>poidh.xyz/{chain}/bounty/{id}/data</code> — CORS-open, cache-light, unstoppable.<br>
+    <strong>Data integrity:</strong> headline totals include only <em>verified eligible</em> ETH bounties (excludes DEGEN, outliers, canceled, invalid). Outliers remain visible with <span class="tag outlier">⚠️ outlier</span> — never silently inflated. Live drawer shows authoritative per-bounty amount/currency from <code>/data</code>; snapshot vs live may differ until next refresh. See <code>ROOT_CAUSE.md</code> for 1000-DEGEN incident.<br>
     Built for the <a href="#" id="selfLink">POIDH Showcase bounty</a>. Claim anything directly on <a href="https://poidh.xyz">poidh.xyz</a>.
   </footer>
 </div>
@@ -105,20 +114,77 @@ const SNAPSHOT = {"generatedAt":"1970-01-01T00:00:00.000Z","ethUsd":null,"count"
 </script>
 <script>
 const CHAIN_NAME = { 1:'mainnet', 8453:'base', 42161:'arbitrum', 666666666:'degen' };
-const state = { q:'', chain:'', sort:'usd', hideIp:false };
+const CHAIN_CURRENCY = { 1:'eth', 8453:'eth', 42161:'eth', 666666666:'degen' };
+const state = { q:'', chain:'', sort:'usd', hideIp:false, hideOut:false };
 
+// Helpers with currency awareness
 function fmtEth(v){ return (v>=100? v.toFixed(1): v>=1? v.toFixed(3): v.toFixed(4)) + ' Ξ'; }
-function fmtUsd(v){ if(!SNAPSHOT.ethUsd) return null; const u=v*SNAPSHOT.ethUsd; return '$'+(u>=1000? Math.round(u).toLocaleString('en-US'): u.toFixed(0)); }
+function fmtDegen(v){ return (v>=100? v.toFixed(1): v.toFixed(2)) + ' DEGEN'; }
+function fmtUsdDirect(u){ return '$'+(u>=1000? Math.round(u).toLocaleString('en-US'): u.toFixed(0)); }
+function fmtUsdEth(v){
+  if(v==null || !SNAPSHOT.ethUsd) return null;
+  const u=v*SNAPSHOT.ethUsd;
+  return fmtUsdDirect(u);
+}
 function esc(s){ return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
+// Validate if bounty should be counted toward ETH headline
+function isEligible(b){
+  // Prefer snapshot's ok flag if present (authoritative builder validation)
+  if (b.ok !== undefined) return !!b.ok && b.cur==='eth';
+  // Fallback client-side heuristics for old snapshots
+  if (b.ch===666666666) return false; // degen never counts as ETH
+  if (b.a>10) return false;
+  if (b.war) return false;
+  return true;
+}
+function bountyUsd(b){
+  if (b.u != null && Number.isFinite(b.u)) return b.u;
+  if (b.cur==='eth' && SNAPSHOT.ethUsd) return b.a*SNAPSHOT.ethUsd;
+  return null;
+}
+function bountyDisplay(b){
+  // Returns {ethStr, usdStr, tokenStr}
+  if (b.cur==='degen') {
+    const usd = b.u!=null? fmtUsdDirect(b.u) : '';
+    return { main: fmtDegen(b.a), sub: usd? '≈ '+usd : '', token: 'DEGEN' };
+  } else if (b.cur==='unknown') {
+    return { main: b.a? fmtEth(b.a): '—', sub: b.u? '≈ '+fmtUsdDirect(b.u):'', token:'unknown' };
+  } else {
+    const usd = bountyUsd(b);
+    return { main: fmtEth(b.a), sub: usd? '≈ '+fmtUsdDirect(usd):'', token:'ETH' };
+  }
+}
+
 function init(){
+  // Headline totals: only verified eligible ETH records
+  const eligible = SNAPSHOT.bounties.filter(isEligible);
+  const ethTot = eligible.reduce((s,b)=>s+b.a,0);
+  const usdTot = eligible.reduce((s,b)=>{ const u=bountyUsd(b); return s + (u||0); },0);
+  // Fallback: if snapshot provides precomputed totals, use them (authoritative)
+  const headlineEth = SNAPSHOT.ethTotal!=null ? SNAPSHOT.ethTotal : ethTot;
+  const headlineUsd = SNAPSHOT.usdTotal!=null ? SNAPSHOT.usdTotal : usdTot;
+
   document.getElementById('stCount').textContent = SNAPSHOT.count;
-  const tot = SNAPSHOT.bounties.reduce((s,b)=>s+b.a,0);
-  document.getElementById('stEth').textContent = fmtEth(tot);
-  document.getElementById('stUsd').textContent = SNAPSHOT.ethUsd ? '$'+Math.round(tot*SNAPSHOT.ethUsd).toLocaleString('en-US') : 'n/a';
+  document.getElementById('stEth').textContent = fmtEth(headlineEth);
+  document.getElementById('stUsd').textContent = fmtUsdDirect(headlineUsd);
+
   const gen = new Date(SNAPSHOT.generatedAt);
   const mins = Math.round((Date.now()-gen)/60000);
-  document.getElementById('snapAge').textContent = `snapshot: ${SNAPSHOT.count} bounties • ${mins<90? mins+' min': Math.round(mins/60)+' h'} old • eth=$${SNAPSHOT.ethUsd}`;
+  const eligibleNote = SNAPSHOT.eligibleCount!=null ? `${SNAPSHOT.eligibleCount} eligible for ETH totals` : `${eligible.length} eligible`;
+  const outlierNote = SNAPSHOT.outlierCount? `, ${SNAPSHOT.outlierCount} outlier`+(SNAPSHOT.outlierCount>1?'s':'')+' excluded' : '';
+  document.getElementById('snapAge').textContent = `snapshot: ${SNAPSHOT.count} bounties (${eligibleNote}${outlierNote}) • ${mins<90? mins+' min': Math.round(mins/60)+' h'} old • eth=$${SNAPSHOT.ethUsd}`;
+  document.getElementById('verifyLine').textContent = `verified ETH: ${fmtEth(headlineEth)} ≈ ${fmtUsdDirect(headlineUsd)}`;
+
+  // Outlier banner if any
+  const outliers = SNAPSHOT.bounties.filter(b=>!isEligible(b) && b.war);
+  if(outliers.length){
+    const banner=document.getElementById('outlierBanner');
+    const eg=outliers.slice(0,2).map(b=>`#${b.i} “${b.t.slice(0,40)}…” — ${b.cur} ${b.a} (${b.war})`).join(' • ');
+    banner.textContent = `⚠️ ${outliers.length} outlier`+(outliers.length>1?'s':'')+` excluded from ETH totals (e.g. ${eg}). They remain visible below with ⚠️ — not counted toward headline.`;
+    banner.classList.add('show');
+  }
+
   const cs = [...new Set(SNAPSHOT.bounties.map(b=>CHAIN_NAME[b.ch]))];
   const sel = document.getElementById('chainSel');
   for(const c of cs){ const o=document.createElement('option'); o.value=c; o.textContent=c; sel.appendChild(o); }
@@ -126,6 +192,7 @@ function init(){
   document.getElementById('sort').addEventListener('change',e=>{state.sort=e.target.value;render();});
   sel.addEventListener('change',e=>{state.chain=e.target.value;render();});
   document.getElementById('hideIp').addEventListener('click',e=>{state.hideIp=!state.hideIp;e.target.classList.toggle('on');render();});
+  document.getElementById('hideOut').addEventListener('click',e=>{state.hideOut=!state.hideOut;e.target.classList.toggle('on');render();});
   render();
   routeFromHash();
   let suppressHash=false;
@@ -136,10 +203,15 @@ function visible(){
   let arr = SNAPSHOT.bounties.filter(b=>{
     if(state.chain && CHAIN_NAME[b.ch]!==state.chain) return false;
     if(state.hideIp && b.ip) return false;
+    if(state.hideOut && !isEligible(b)) return false;
     if(state.q && !b.t.toLowerCase().includes(state.q)) return false;
     return true;
   });
-  if(state.sort==='usd') arr.sort((x,y)=>y.a-x.a);
+  if(state.sort==='usd') arr.sort((x,y)=>{
+    const xv = x.u!=null? x.u : (x.cur==='eth'? x.a*(SNAPSHOT.ethUsd||0):0);
+    const yv = y.u!=null? y.u : (y.cur==='eth'? y.a*(SNAPSHOT.ethUsd||0):0);
+    return yv - xv;
+  });
   else if(state.sort==='new'){ const ts=b=>b.ca?Date.parse(b.ca):0; arr.sort((x,y)=>ts(y)-ts(x)); }
   else { const dl=b=>b.d?Date.parse(b.d):Infinity; arr.sort((x,y)=>dl(x)-dl(y)); }
   return arr;
@@ -151,22 +223,28 @@ function render(){
   const ol = document.getElementById('list');
   ol.innerHTML='';
   for(const b of arr){
-    const li=document.createElement('li'); li.className='b'; li.id='b-'+b.i;
-    const usd=fmtUsd(b.a);
+    const li=document.createElement('li'); li.className='b'+(!isEligible(b) && b.war?' outlier':''); li.id='b-'+b.i;
+    const disp = bountyDisplay(b);
+    const eligible = isEligible(b);
     let dl='';
     if(b.d){ const ms=Date.parse(b.d)-Date.now();
       dl = ms>0 ? `<span class="tag warn">ends in ${humanize(ms)}</span>` : `<span class="tag">ended</span>`;
     }
+    const outlierTag = b.war ? `<span class="tag outlier" title="${esc(b.war)}">⚠️ outlier: ${esc(b.war)}</span>` : '';
+    const curTag = b.cur? `<span class="tag">${esc(b.cur)}</span>` : '';
     li.innerHTML=`
       <div class="rowtop">
         <span class="t" data-id="${b.i}">${esc(b.t)}</span>
-        <span class="val"><span class="eth">${fmtEth(b.a)}</span><br><span class="usd">${usd? '≈ '+usd : ''}</span></span>
+        <span class="val"><span class="eth">${esc(disp.main)}</span><br><span class="usd">${esc(disp.sub)}</span></span>
       </div>
       <div class="tags">
         <span class="tag chain-${CHAIN_NAME[b.ch]}">${CHAIN_NAME[b.ch]}</span>
+        ${curTag}
         ${b.mp?'<span class="tag">multiplayer</span>':''}
         ${b.ip?'<span class="tag">in progress</span>':''}
         ${dl}
+        ${outlierTag}
+        ${!eligible && !b.war ? '<span class="tag bad">excluded</span>':''}
         <span class="tag" data-live="${b.i}">live: idle</span>
       </div>
       <div class="drawer" id="d-${b.i}"></div>`;
@@ -186,12 +264,11 @@ async function toggle(b){
   const d=document.getElementById('d-'+b.i);
   const already=d.classList.contains('open');
   document.querySelectorAll('.drawer.open').forEach(x=>x.classList.remove('open'));
-  if(already){ suppressHash=true; location.hash=''; return; }
+  if(already){ history.replaceState(null,'',location.pathname); return; }
   d.classList.add('open');
-  suppressHash=true;
-  location.hash='b/'+CHAIN_NAME[b.ch]+'/'+b.i;
+  history.replaceState(null,'',`#b/${CHAIN_NAME[b.ch]}/${b.i}`);
   d.innerHTML='<div class="skel">loading…</div>';
-  location.hash='b/'+CHAIN_NAME[b.ch]+'/'+b.i;
+  let suppressHash=false;
   setTimeout(()=>suppressHash=false,0);
   const lt=document.querySelector(`[data-live="${b.i}"]`);
   try{
@@ -199,14 +276,31 @@ async function toggle(b){
     if(!r.ok) throw new Error('HTTP '+r.status);
     const j=await r.json();
     lt.textContent='live: ok'; lt.className='tag live-ok';
-    const amt=j.amount!=null? Number(BigInt(j.amount))/1e18 : b.a;
+    // Authoritative live amount with currency awareness
+    const liveRaw = j.amount;
+    const liveCur = (j.currency || b.cur || 'eth').toLowerCase();
+    const liveAmt = liveRaw!=null? Number(BigInt(liveRaw))/1e18 : b.a;
+    const liveUsd = j.priceUsd!=null? Number(j.priceUsd) : (j.amountSort!=null? Number(j.amountSort) : (liveCur==='eth' && SNAPSHOT.ethUsd ? liveAmt*SNAPSHOT.ethUsd : null));
+    let liveStr='';
+    if(liveCur==='degen') liveStr = `${liveAmt.toFixed(2)} DEGEN${liveUsd!=null?' ≈ '+fmtUsdDirect(liveUsd):''} (chain: degen)`;
+    else if(liveCur==='eth') liveStr = `${fmtEth(liveAmt)}${liveUsd!=null?' ≈ '+fmtUsdDirect(liveUsd):''}`;
+    else liveStr = `${liveAmt} ${liveCur}${liveUsd!=null?' ≈ '+fmtUsdDirect(liveUsd):''}`;
+
+    // Detect snapshot mis-denomination vs live
+    let mismatch='';
+    if(b.cur!==liveCur) mismatch = `<div class="meta-line" style="color:var(--warn)">snapshot currency was ${esc(b.cur||'unknown')}, live is ${esc(liveCur)} — use live value as authoritative.</div>`;
+    else if(b.cur==='eth' && Math.abs(liveAmt-b.a)>1e-9) mismatch = `<div class="meta-line">live amount: ${esc(liveStr)} (snapshot was ${esc(bountyDisplay(b).main)})</div>`;
+    else if(b.cur==='degen' && Math.abs(liveAmt-b.a)>1e-9) mismatch = `<div class="meta-line">live amount: ${esc(liveStr)}</div>`;
+    // For eligible ETH bounties, show live if diff
+    const showLive = mismatch || (liveCur==='eth' && Math.abs(liveAmt-b.a)>1e-9);
     d.innerHTML=`
+      ${showLive? mismatch || `<div class="meta-line">live amount: ${esc(liveStr)}</div>` : `<div class="meta-line">live amount: ${esc(liveStr)} ${liveCur==='degen'?'— not counted toward ETH headline':''}</div>`}
       <div class="desc">${esc((j.description||'').slice(0,4000))}</div>
       <div class="btns">
         <a class="btn" href="https://poidh.xyz/${CHAIN_NAME[b.ch]}/bounty/${b.i}" target="_blank" rel="noopener">Open on poidh.xyz to claim ↗</a>
         <button class="btn sec" onclick="navigator.clipboard.writeText(location.origin+location.pathname+'#b/${CHAIN_NAME[b.ch]}/${b.i}')">copy deep-link</button>
       </div>`;
-    if(Math.abs(amt-b.a)>1e-9){ d.insertAdjacentHTML('afterbegin',`<div class="meta-line">live amount: ${fmtEth(amt)}${SNAPSHOT.ethUsd? ' ≈ $'+Math.round(amt*SNAPSHOT.ethUsd).toLocaleString('en-US'):''}</div>`); }
+    if(b.war) d.insertAdjacentHTML('afterbegin',`<div class="meta-line" style="color:var(--warn)">⚠️ snapshot flagged as outlier (${esc(b.war)}) — excluded from ETH headline; live value above is authoritative.</div>`);
   }catch(e){
     lt.textContent='live: failed'; lt.className='tag';
     d.innerHTML=`<div class="skel">live fetch failed (${esc(String(e).slice(0,80))}) — snapshot only. Open on poidh.xyz for current state.</div>

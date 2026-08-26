@@ -32,6 +32,7 @@
   ol.cards{list-style:none;margin:0;padding:0;display:grid;gap:10px}
   li.b{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:13px 15px;transition:border-color .15s, transform .05s}
   li.b:hover{border-color:#33405c}
+  li.b.outlier{border-color:var(--warn);background:#1a1510}
   .rowtop{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
   .t{font-weight:650;font-size:15.5px;cursor:pointer}
   .val{text-align:right;white-space:nowrap}
@@ -45,6 +46,8 @@
   .tag.chain-degen{color:#e79aff;border-color:#6d3278}
   .tag.live-ok{color:var(--acc2);border-color:#1f5b46}
   .tag.warn{color:var(--warn);border-color:#6b4c1d}
+  .tag.bad{color:var(--bad);border-color:#6b1d2a}
+  .tag.outlier{background:#2a1f0a;color:var(--warn);border-color:var(--warn)}
   .drawer{display:none;background:var(--bg2);border:1px solid var(--line);border-radius:14px;padding:16px;margin-top:4px}
   .drawer.open{display:block}
   .desc{white-space:pre-wrap;color:#c6cedd;font-size:14px;max-height:340px;overflow:auto;border-left:3px solid var(--line);padding-left:12px;margin:10px 0}
@@ -54,6 +57,8 @@
   .foot{margin-top:34px;color:var(--mut);font-size:13px;line-height:1.6}
   .foot code{background:var(--card);border:1px solid var(--line);padding:1px 6px;border-radius:6px;font-size:12px}
   .skel{color:var(--mut);text-align:center;padding:30px 0}
+  .banner-warn{background:#1a1510;border:1px solid var(--warn);color:var(--warn);border-radius:10px;padding:10px 14px;margin:14px 0;font-size:13.5px;display:none}
+  .banner-warn.show{display:block}
   @media(max-width:640px){ h1{font-size:24px} .stat{min-width:90px;flex:1} }
 </style>
 </head>
@@ -66,10 +71,12 @@
     </div>
     <div class="stats">
       <div class="stat"><div class="v" id="stCount">–</div><div class="k">open bounties</div></div>
-      <div class="stat"><div class="v" id="stEth">–</div><div class="k">ETH escrowed</div></div>
-      <div class="stat"><div class="v" id="stUsd">–</div><div class="k">approx. USD</div></div>
+      <div class="stat"><div class="v" id="stEth">–</div><div class="k">ETH escrowed <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--mut)">(verified, ETH-only)</span></div></div>
+      <div class="stat"><div class="v" id="stUsd">–</div><div class="k">approx. USD <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--mut)">(verified)</span></div></div>
     </div>
   </header>
+
+  <div id="outlierBanner" class="banner-warn"></div>
 
   <div class="bar">
     <input type="search" id="q" placeholder="Search titles… (e.g. poap, farcaster, video)">
@@ -82,9 +89,10 @@
       <option value="">All chains</option>
     </select>
     <span class="chip" id="hideIp">hide in-progress</span>
+    <span class="chip" id="hideOut">hide outliers</span>
   </div>
   <div class="meta-line">
-    <span id="snapAge"></span><span id="shown"></span>
+    <span id="snapAge"></span><span id="shown"></span><span id="verifyLine"></span>
   </div>
 
   <ol class="cards" id="list"></ol>
@@ -93,32 +101,90 @@
     <strong>How this stays decentralized:</strong> the index above is an embedded snapshot committed straight into this static file (see
     <code>.github/workflows/refresh.yml</code> — a scheduled GitHub Action re-scrapes poidh's public API and commits fresh data; no server of mine exists or is needed).
     Whenever you open a bounty here, its description &amp; status are re-fetched <em>live</em> from
-    <code>poidh.xyz/{chain}/bounty/{id}/data</code> — CORS-open, cache-light, unstoppable.
+    <code>poidh.xyz/{chain}/bounty/{id}/data</code> — CORS-open, cache-light, unstoppable.<br>
+    <strong>Data integrity:</strong> headline totals include only <em>verified eligible</em> ETH bounties (excludes DEGEN, outliers, canceled, invalid). Outliers remain visible with <span class="tag outlier">⚠️ outlier</span> — never silently inflated. Live drawer shows authoritative per-bounty amount/currency from <code>/data</code>; snapshot vs live may differ until next refresh. See <code>ROOT_CAUSE.md</code> for 1000-DEGEN incident.<br>
     Built for the <a href="#" id="selfLink">POIDH Showcase bounty</a>. Claim anything directly on <a href="https://poidh.xyz">poidh.xyz</a>.
   </footer>
 </div>
 
 <script>
 <!--SNAPSHOT:START-->
-const SNAPSHOT = {"generatedAt":"2026-08-26T07:58:09.959Z","ethUsd":2461.82,"count":93,"bounties":[{"i":1382,"c":"degen","t":"secret menu item 27 chars plain words only by @mr94t3z","a":1000,"ch":666666666,"mp":true,"ip":true,"d":null,"ca":"2026-04-20T17:13:04.000Z"},{"i":1251,"c":"base","t":"GM Farcaster Sponsor Referral Bounty","a":0.521,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-06-17T20:33:07.000Z"},{"i":24,"c":"mainnet","t":"Build a CELL hardware wallet from scratch and sign with it","a":0.44862,"ch":1,"mp":true,"ip":true,"d":null,"ca":"2026-08-23T03:00:47.000Z"},{"i":327,"c":"arbitrum","t":"Correct Terminal-Bench 2.1 run for DeepSeek-V4-Flash","a":0.16,"ch":42161,"mp":true,"ip":true,"d":null,"ca":"2026-08-21T22:58:18.000Z"},{"i":21,"c":"mainnet","t":"Warplets URL -> IRL","a":0.0845,"ch":1,"mp":true,"ip":true,"d":null,"ca":"2026-08-04T17:27:59.000Z"},{"i":1190,"c":"base","t":"Interview a Politician About Crypto for The /⁠politics Network","a":0.0827,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-06-01T23:05:55.000Z"},{"i":16,"c":"mainnet","t":"Warm Intro to a Crypto VC","a":0.067,"ch":1,"mp":true,"ip":true,"d":null,"ca":"2026-06-26T19:23:23.000Z"},{"i":20,"c":"mainnet","t":"Best Bounty (August 2026) 🏆","a":0.06,"ch":1,"mp":true,"ip":true,"d":null,"ca":"2026-08-01T16:57:11.000Z"},{"i":1334,"c":"base","t":"Build the Onchain POAPs Frontend","a":0.0457,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-08-22T07:40:45.000Z"},{"i":1315,"c":"base","t":"🔎 LetterLoops: The Letter Hunt","a":0.0418,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-08-11T21:22:01.000Z"},{"i":319,"c":"arbitrum","t":"maja does chatgpt poetry","a":0.0413,"ch":42161,"mp":true,"ip":true,"d":null,"ca":"2026-07-27T20:52:34.000Z"},{"i":1306,"c":"base","t":"Build a POIDH Bounty Showcase","a":0.041,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-08-04T23:38:33.000Z"},{"i":328,"c":"arbitrum","t":"DeepSeek-V4-Flash KLD parity measurement","a":0.04,"ch":42161,"mp":true,"ip":true,"d":null,"ca":"2026-08-21T23:03:48.000Z"},{"i":993,"c":"base","t":"hit it grip it and rip it 😤🏌️","a":0.0388,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-01-24T17:31:29.000Z"},{"i":1311,"c":"base","t":"BINARY PIXELS — FIND SOMETHING IN RANDOMNESS","a":0.036,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-08-08T08:55:09.000Z"},{"i":1322,"c":"base","t":"Find 3 of a Kind","a":0.03013,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-08-17T20:17:53.000Z"},{"i":1305,"c":"base","t":"Share Your Music on Tortoise 🐢","a":0.0295,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-08-04T14:19:37.000Z"},{"i":324,"c":"arbitrum","t":"find a ~30 year old textbook that beats Pangram","a":0.0287,"ch":42161,"mp":true,"ip":true,"d":null,"ca":"2026-08-07T05:07:11.000Z"},{"i":1186,"c":"base","t":"Be A Freedom Fighter In Your Community","a":0.0251,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-06-01T06:10:31.000Z"},{"i":326,"c":"arbitrum","t":"Art, Coffee & Farcaster ☕️🟣","a":0.0245,"ch":42161,"mp":true,"ip":true,"d":null,"ca":"2026-08-20T00:21:59.000Z"},{"i":1326,"c":"base","t":"Farcaster Season 1 & 2 Recap 🎬","a":0.0245,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-08-19T22:19:23.000Z"},{"i":1336,"c":"base","t":"Check Your Blood Pressure 🩺 — Who's the Fittest?","a":0.0241,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-08-24T17:32:13.000Z"},{"i":1330,"c":"base","t":"Best 60s clip from the WaveWarZ Twitch stream","a":0.0238,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-08-21T10:33:45.000Z"},{"i":1328,"c":"base","t":"Slam or Die — Best Skate Bail on SkateHive","a":0.0235,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-08-20T17:58:01.000Z"},{"i":235,"c":"arbitrum","t":"impossible late flip for poidh 🛹","a":0.023,"ch":42161,"mp":true,"ip":true,"d":null,"ca":"2026-03-17T04:09:44.000Z"},{"i":1332,"c":"base","t":"Clank that Cat!","a":0.023,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-08-21T15:06:53.000Z"},{"i":1062,"c":"base","t":"smokingfrog tattoos POIDH ","a":0.023,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-02-26T20:48:11.000Z"},{"i":325,"c":"arbitrum","t":"Test Sieve and Give Us Feedback","a":0.021,"ch":42161,"mp":true,"ip":true,"d":null,"ca":"2026-08-17T23:21:47.000Z"},{"i":1192,"c":"base","t":"Help Fund A Theoretical Neuroscience Paper","a":0.0185,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-06-02T13:22:29.000Z"},{"i":1145,"c":"base","t":"Engage with our video on X","a":0.0135,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-04-23T21:34:55.000Z"},{"i":1093,"c":"base","t":"Farcaster - The Movie (Trailer)","a":0.0125,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-03-19T22:49:05.000Z"},{"i":1108,"c":"base","t":"Win $10 in Among Traitors ","a":0.0122,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-04-01T01:38:21.000Z"},{"i":1106,"c":"base","t":"Battle for the Bronx","a":0.0122,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-03-31T17:38:01.000Z"},{"i":1316,"c":"base","t":"Found Poetry - make a poem from whatever's in reach","a":0.0122,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-08-12T14:01:47.000Z"},{"i":1051,"c":"base","t":"Brian Armstrong tries poidh 📸","a":0.012,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-02-23T18:33:39.000Z"},{"i":1317,"c":"base","t":"Build a Visual Food Quote-Cast Tree","a":0.0115,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-08-12T15:40:19.000Z"},{"i":23,"c":"mainnet","t":"Go To Church","a":0.0113,"ch":1,"mp":true,"ip":true,"d":null,"ca":"2026-08-17T21:19:59.000Z"},{"i":1335,"c":"base","t":"Enter Collective Memory mini app staking challenge","a":0.01,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-08-22T17:52:35.000Z"},{"i":1321,"c":"base","t":"Hot Sauce Hero Image","a":0.0095,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-08-16T17:59:25.000Z"},{"i":1048,"c":"base","t":"Joseph do a kickflip","a":0.008,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-02-21T21:26:29.000Z"},{"i":1088,"c":"base","t":"find a business with a Cascadia flag 🌲","a":0.0077,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-03-11T18:27:23.000Z"},{"i":296,"c":"arbitrum","t":"get out in a forest 🌲🌳🌴🍁","a":0.0075,"ch":42161,"mp":true,"ip":true,"d":null,"ca":"2026-05-01T18:24:11.000Z"},{"i":295,"c":"arbitrum","t":"Highlight A Business That Gives Back 🏬","a":0.007,"ch":42161,"mp":true,"ip":true,"d":null,"ca":"2026-04-30T20:01:50.000Z"},{"i":184,"c":"arbitrum","t":"Adel's for Arbitrum","a":0.007,"ch":42161,"mp":true,"ip":true,"d":null,"ca":"2026-01-24T04:37:41.000Z"},{"i":1309,"c":"base","t":"Photography bounty:Black and white ⚫️⚪️","a":0.0069,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-08-06T21:46:43.000Z"},{"i":1073,"c":"base","t":"Coral Health Survey Snapshot ","a":0.0065,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-03-02T20:11:05.000Z"},{"i":1071,"c":"base","t":"Reef Debris Cleanup","a":0.0065,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-03-02T20:07:51.000Z"},{"i":329,"c":"arbitrum","t":"Feedback for FreeToken","a":0.0065,"ch":42161,"mp":true,"ip":true,"d":null,"ca":"2026-08-23T19:06:22.000Z"},{"i":1074,"c":"base","t":"Coral Health Restoration Snapshot","a":0.0065,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-03-02T20:26:55.000Z"},{"i":1075,"c":"base","t":"Coral Frag Plant","a":0.0054,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-03-02T21:00:49.000Z"},{"i":1078,"c":"base","t":"Debris Eco-Art","a":0.0054,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-03-02T21:11:57.000Z"},{"i":1077,"c":"base","t":"Reef Threat Edu Video","a":0.0054,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-03-02T21:09:57.000Z"},{"i":1076,"c":"base","t":"Group Cleanup Proof","a":0.0054,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-03-02T21:02:17.000Z"},{"i":1146,"c":"base","t":"take a photo in Turkey","a":0.0053,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-04-24T15:38:03.000Z"},{"i":224,"c":"arbitrum","t":"Germany verified 🇩🇪","a":0.0044,"ch":42161,"mp":true,"ip":true,"d":null,"ca":"2026-03-03T23:51:34.000Z"},{"i":223,"c":"arbitrum","t":"Japan verified 🇯🇵","a":0.0044,"ch":42161,"mp":true,"ip":true,"d":null,"ca":"2026-03-03T23:50:03.000Z"},{"i":222,"c":"arbitrum","t":"Mexico verified 🇲🇽","a":0.0044,"ch":42161,"mp":true,"ip":true,"d":null,"ca":"2026-03-03T23:48:45.000Z"},{"i":321,"c":"arbitrum","t":"Build a ship in a bottle ","a":0.00438,"ch":42161,"mp":true,"ip":true,"d":null,"ca":"2026-08-04T18:29:33.000Z"},{"i":1289,"c":"base","t":"MIKOS32 NEEDS A LITTLE HELP","a":0.004,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-07-12T15:32:51.000Z"},{"i":1301,"c":"base","t":"One Thing Web3 Fixed. One Thing It Broke.","a":0.0038,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-07-30T23:40:39.000Z"},{"i":1096,"c":"base","t":"Preach POIDH & We Them Media ","a":0.0034,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-03-21T19:12:21.000Z"},{"i":1149,"c":"base","t":"find poidh in Seattle 📍","a":0.0033,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-04-24T19:24:49.000Z"},{"i":1150,"c":"base","t":"find poidh in Seattle 📍","a":0.0033,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-04-24T19:25:57.000Z"},{"i":305,"c":"arbitrum","t":"#busch4busch","a":0.0033,"ch":42161,"mp":true,"ip":true,"d":null,"ca":"2026-05-22T00:08:22.000Z"},{"i":1333,"c":"base","t":"ZitiCashbox - send $1 to a user at the LATAM Digital Assets Conference","a":0.0029,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-08-21T15:25:25.000Z"},{"i":1152,"c":"base","t":"Louis posts beautiful Glia shell code","a":0.00255,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-04-28T21:11:55.000Z"},{"i":287,"c":"arbitrum","t":"Onchaindare","a":0.002,"ch":42161,"mp":true,"ip":true,"d":null,"ca":"2026-04-14T05:50:45.000Z"},{"i":1113,"c":"base","t":"Random Act of Kindness - IRL Photo Bounty","a":0.001,"ch":8453,"mp":false,"ip":true,"d":null,"ca":"2026-04-02T15:50:23.000Z"},{"i":1114,"c":"base","t":"Random Act of Kindness - IRL Photo Bounty","a":0.001,"ch":8453,"mp":false,"ip":true,"d":null,"ca":"2026-04-02T15:59:27.000Z"},{"i":1237,"c":"base","t":"make a split","a":0.001,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-06-11T23:42:57.000Z"},{"i":1209,"c":"base","t":"Share $Space on X with screenshot — $5","a":0.001,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-06-11T19:12:13.000Z"},{"i":1216,"c":"base","t":"Share $Space on X with screenshot — $5","a":0.001,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-06-11T19:13:47.000Z"},{"i":1236,"c":"base","t":"make a split","a":0.001,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-06-11T23:42:03.000Z"},{"i":1127,"c":"base","t":"Show this code in public","a":0.001,"ch":8453,"mp":false,"ip":true,"d":null,"ca":"2026-04-04T08:23:59.000Z"},{"i":1045,"c":"base","t":"Make a Bounty","a":0.001,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-02-20T21:00:27.000Z"},{"i":1037,"c":"base","t":"test","a":0.001,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-02-18T01:43:45.000Z"},{"i":1232,"c":"base","t":"Test bounty","a":0.001,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-06-11T23:30:23.000Z"},{"i":1233,"c":"base","t":"Test bounty","a":0.001,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-06-11T23:31:27.000Z"},{"i":1235,"c":"base","t":"Test bounty","a":0.001,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-06-11T23:34:01.000Z"},{"i":1116,"c":"base","t":"Random Act of Kindness - IRL Photo Bounty","a":0.001,"ch":8453,"mp":false,"ip":true,"d":null,"ca":"2026-04-02T19:39:49.000Z"},{"i":1124,"c":"base","t":"Show this code in public","a":0.001,"ch":8453,"mp":false,"ip":true,"d":null,"ca":"2026-04-04T06:46:49.000Z"},{"i":1222,"c":"base","t":"Share $Space on X with screenshot — $5","a":0.001,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-06-11T19:14:47.000Z"},{"i":1097,"c":"base","t":"The Hydration Check","a":0.001,"ch":8453,"mp":false,"ip":true,"d":null,"ca":"2026-03-22T04:50:33.000Z"},{"i":1219,"c":"base","t":"Share $Space on X with screenshot — $5","a":0.001,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-06-11T19:14:15.000Z"},{"i":1128,"c":"base","t":"Show this code in public","a":0.001,"ch":8453,"mp":false,"ip":true,"d":null,"ca":"2026-04-04T08:38:33.000Z"},{"i":1223,"c":"base","t":"Share $Space on X with screenshot — $5","a":0.001,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-06-11T19:14:55.000Z"},{"i":999,"c":"base","t":"Ramus Grove Stewardship","a":0.001,"ch":8453,"mp":false,"ip":true,"d":null,"ca":"2026-01-26T07:06:31.000Z"},{"i":1125,"c":"base","t":"Test Bounty","a":0.001,"ch":8453,"mp":false,"ip":true,"d":null,"ca":"2026-04-04T06:47:07.000Z"},{"i":1215,"c":"base","t":"Share $Space on X with screenshot — $5","a":0.001,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-06-11T19:13:35.000Z"},{"i":998,"c":"base","t":"Ramus Grove Stewardship","a":0.001,"ch":8453,"mp":false,"ip":true,"d":null,"ca":"2026-01-26T07:01:17.000Z"},{"i":1324,"c":"base","t":"test2","a":0.001,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-08-19T02:15:29.000Z"},{"i":997,"c":"base","t":"Clean a local green space","a":0.001,"ch":8453,"mp":false,"ip":true,"d":null,"ca":"2026-01-26T02:20:35.000Z"},{"i":1231,"c":"base","t":"Test bounty","a":0.001,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-06-11T23:29:21.000Z"}]};
+const SNAPSHOT = {"generatedAt":"2026-08-26T20:57:30.209Z","ethUsd":2471.26,"count":92,"eligibleCount":91,"ethTotal":2.391179999999995,"usdTotal":5901.642139999993,"buggyTotal":1002.39118,"outlierCount":1,"bounties":[{"i":24,"c":"mainnet","t":"Build a CELL hardware wallet from scratch and sign with it","a":0.54482,"ch":1,"mp":true,"ip":true,"d":null,"ca":"2026-08-23T03:00:47.000Z","cur":"eth","u":1342.4255,"ok":true,"war":null},{"i":1251,"c":"base","t":"GM Farcaster Sponsor Referral Bounty","a":0.521,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-06-17T20:33:07.000Z","cur":"eth","u":1286.5052,"ok":true,"war":null},{"i":327,"c":"arbitrum","t":"Correct Terminal-Bench 2.1 run for DeepSeek-V4-Flash","a":0.16,"ch":42161,"mp":true,"ip":true,"d":null,"ca":"2026-08-21T22:58:18.000Z","cur":"eth","u":395.088,"ok":true,"war":null},{"i":21,"c":"mainnet","t":"Warplets URL -> IRL","a":0.0845,"ch":1,"mp":true,"ip":true,"d":null,"ca":"2026-08-04T17:27:59.000Z","cur":"eth","u":208.65585,"ok":true,"war":null},{"i":1190,"c":"base","t":"Interview a Politician About Crypto for The /⁠politics Network","a":0.0827,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-06-01T23:05:55.000Z","cur":"eth","u":204.2111,"ok":true,"war":null},{"i":16,"c":"mainnet","t":"Warm Intro to a Crypto VC","a":0.067,"ch":1,"mp":true,"ip":true,"d":null,"ca":"2026-06-26T19:23:23.000Z","cur":"eth","u":165.4431,"ok":true,"war":null},{"i":20,"c":"mainnet","t":"Best Bounty (August 2026) 🏆","a":0.06,"ch":1,"mp":true,"ip":true,"d":null,"ca":"2026-08-01T16:57:11.000Z","cur":"eth","u":148.158,"ok":true,"war":null},{"i":1334,"c":"base","t":"Build the Onchain POAPs Frontend","a":0.0457,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-08-22T07:40:45.000Z","cur":"eth","u":112.84701,"ok":true,"war":null},{"i":319,"c":"arbitrum","t":"maja does chatgpt poetry","a":0.0413,"ch":42161,"mp":true,"ip":true,"d":null,"ca":"2026-07-27T20:52:34.000Z","cur":"eth","u":101.98209,"ok":true,"war":null},{"i":1306,"c":"base","t":"Build a POIDH Bounty Showcase","a":0.041,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-08-04T23:38:33.000Z","cur":"eth","u":101.2413,"ok":true,"war":null},{"i":328,"c":"arbitrum","t":"DeepSeek-V4-Flash KLD parity measurement","a":0.04,"ch":42161,"mp":true,"ip":true,"d":null,"ca":"2026-08-21T23:03:48.000Z","cur":"eth","u":98.772,"ok":true,"war":null},{"i":993,"c":"base","t":"hit it grip it and rip it 😤🏌️","a":0.0388,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-01-24T17:31:29.000Z","cur":"eth","u":95.80884,"ok":true,"war":null},{"i":1311,"c":"base","t":"BINARY PIXELS — FIND SOMETHING IN RANDOMNESS","a":0.036,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-08-08T08:55:09.000Z","cur":"eth","u":88.8948,"ok":true,"war":null},{"i":1322,"c":"base","t":"Find 3 of a Kind","a":0.03013,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-08-17T20:17:53.000Z","cur":"eth","u":74.40001,"ok":true,"war":null},{"i":1305,"c":"base","t":"Share Your Music on Tortoise 🐢","a":0.0295,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-08-04T14:19:37.000Z","cur":"eth","u":72.84435,"ok":true,"war":null},{"i":324,"c":"arbitrum","t":"find a ~30 year old textbook that beats Pangram","a":0.0287,"ch":42161,"mp":true,"ip":true,"d":null,"ca":"2026-08-07T05:07:11.000Z","cur":"eth","u":70.86891,"ok":true,"war":null},{"i":1186,"c":"base","t":"Be A Freedom Fighter In Your Community","a":0.0251,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-06-01T06:10:31.000Z","cur":"eth","u":61.97943,"ok":true,"war":null},{"i":1326,"c":"base","t":"Farcaster Season 1 & 2 Recap 🎬","a":0.0245,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-08-19T22:19:23.000Z","cur":"eth","u":60.49785,"ok":true,"war":null},{"i":326,"c":"arbitrum","t":"Art, Coffee & Farcaster ☕️🟣","a":0.0245,"ch":42161,"mp":true,"ip":true,"d":null,"ca":"2026-08-20T00:21:59.000Z","cur":"eth","u":60.49785,"ok":true,"war":null},{"i":1336,"c":"base","t":"Check Your Blood Pressure 🩺 — Who's the Fittest?","a":0.0241,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-08-24T17:32:13.000Z","cur":"eth","u":59.51013,"ok":true,"war":null},{"i":1330,"c":"base","t":"Best 60s clip from the WaveWarZ Twitch stream","a":0.0238,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-08-21T10:33:45.000Z","cur":"eth","u":58.76934,"ok":true,"war":null},{"i":1328,"c":"base","t":"Slam or Die — Best Skate Bail on SkateHive","a":0.0235,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-08-20T17:58:01.000Z","cur":"eth","u":58.02855,"ok":true,"war":null},{"i":235,"c":"arbitrum","t":"impossible late flip for poidh 🛹","a":0.023,"ch":42161,"mp":true,"ip":true,"d":null,"ca":"2026-03-17T04:09:44.000Z","cur":"eth","u":56.7939,"ok":true,"war":null},{"i":1062,"c":"base","t":"smokingfrog tattoos POIDH ","a":0.023,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-02-26T20:48:11.000Z","cur":"eth","u":56.7939,"ok":true,"war":null},{"i":1332,"c":"base","t":"Clank that Cat!","a":0.023,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-08-21T15:06:53.000Z","cur":"eth","u":56.7939,"ok":true,"war":null},{"i":325,"c":"arbitrum","t":"Test Sieve and Give Us Feedback","a":0.021,"ch":42161,"mp":true,"ip":true,"d":null,"ca":"2026-08-17T23:21:47.000Z","cur":"eth","u":51.8553,"ok":true,"war":null},{"i":1192,"c":"base","t":"Help Fund A Theoretical Neuroscience Paper","a":0.0185,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-06-02T13:22:29.000Z","cur":"eth","u":45.68205,"ok":true,"war":null},{"i":1145,"c":"base","t":"Engage with our video on X","a":0.0135,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-04-23T21:34:55.000Z","cur":"eth","u":33.33555,"ok":true,"war":null},{"i":1093,"c":"base","t":"Farcaster - The Movie (Trailer)","a":0.0125,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-03-19T22:49:05.000Z","cur":"eth","u":30.86625,"ok":true,"war":null},{"i":1106,"c":"base","t":"Battle for the Bronx","a":0.0122,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-03-31T17:38:01.000Z","cur":"eth","u":30.12546,"ok":true,"war":null},{"i":1316,"c":"base","t":"Found Poetry - make a poem from whatever's in reach","a":0.0122,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-08-12T14:01:47.000Z","cur":"eth","u":30.12546,"ok":true,"war":null},{"i":1108,"c":"base","t":"Win $10 in Among Traitors ","a":0.0122,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-04-01T01:38:21.000Z","cur":"eth","u":30.12546,"ok":true,"war":null},{"i":1051,"c":"base","t":"Brian Armstrong tries poidh 📸","a":0.012,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-02-23T18:33:39.000Z","cur":"eth","u":29.6316,"ok":true,"war":null},{"i":1317,"c":"base","t":"Build a Visual Food Quote-Cast Tree","a":0.0115,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-08-12T15:40:19.000Z","cur":"eth","u":28.39695,"ok":true,"war":null},{"i":23,"c":"mainnet","t":"Go To Church","a":0.0113,"ch":1,"mp":true,"ip":true,"d":null,"ca":"2026-08-17T21:19:59.000Z","cur":"eth","u":27.90309,"ok":true,"war":null},{"i":1335,"c":"base","t":"Enter Collective Memory mini app staking challenge","a":0.01,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-08-22T17:52:35.000Z","cur":"eth","u":24.693,"ok":true,"war":null},{"i":1321,"c":"base","t":"Hot Sauce Hero Image","a":0.0095,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-08-16T17:59:25.000Z","cur":"eth","u":23.45835,"ok":true,"war":null},{"i":1048,"c":"base","t":"Joseph do a kickflip","a":0.008,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-02-21T21:26:29.000Z","cur":"eth","u":19.7544,"ok":true,"war":null},{"i":1088,"c":"base","t":"find a business with a Cascadia flag 🌲","a":0.0077,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-03-11T18:27:23.000Z","cur":"eth","u":19.01361,"ok":true,"war":null},{"i":296,"c":"arbitrum","t":"get out in a forest 🌲🌳🌴🍁","a":0.0075,"ch":42161,"mp":true,"ip":true,"d":null,"ca":"2026-05-01T18:24:11.000Z","cur":"eth","u":18.51975,"ok":true,"war":null},{"i":184,"c":"arbitrum","t":"Adel's for Arbitrum","a":0.007,"ch":42161,"mp":true,"ip":true,"d":null,"ca":"2026-01-24T04:37:41.000Z","cur":"eth","u":17.2851,"ok":true,"war":null},{"i":295,"c":"arbitrum","t":"Highlight A Business That Gives Back 🏬","a":0.007,"ch":42161,"mp":true,"ip":true,"d":null,"ca":"2026-04-30T20:01:50.000Z","cur":"eth","u":17.2851,"ok":true,"war":null},{"i":1309,"c":"base","t":"Photography bounty:Black and white ⚫️⚪️","a":0.0069,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-08-06T21:46:43.000Z","cur":"eth","u":17.03817,"ok":true,"war":null},{"i":1074,"c":"base","t":"Coral Health Restoration Snapshot","a":0.0065,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-03-02T20:26:55.000Z","cur":"eth","u":16.05045,"ok":true,"war":null},{"i":329,"c":"arbitrum","t":"Feedback for FreeToken","a":0.0065,"ch":42161,"mp":true,"ip":true,"d":null,"ca":"2026-08-23T19:06:22.000Z","cur":"eth","u":16.05045,"ok":true,"war":null},{"i":1073,"c":"base","t":"Coral Health Survey Snapshot ","a":0.0065,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-03-02T20:11:05.000Z","cur":"eth","u":16.05045,"ok":true,"war":null},{"i":1071,"c":"base","t":"Reef Debris Cleanup","a":0.0065,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-03-02T20:07:51.000Z","cur":"eth","u":16.05045,"ok":true,"war":null},{"i":1075,"c":"base","t":"Coral Frag Plant","a":0.0054,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-03-02T21:00:49.000Z","cur":"eth","u":13.33422,"ok":true,"war":null},{"i":1076,"c":"base","t":"Group Cleanup Proof","a":0.0054,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-03-02T21:02:17.000Z","cur":"eth","u":13.33422,"ok":true,"war":null},{"i":1077,"c":"base","t":"Reef Threat Edu Video","a":0.0054,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-03-02T21:09:57.000Z","cur":"eth","u":13.33422,"ok":true,"war":null},{"i":1078,"c":"base","t":"Debris Eco-Art","a":0.0054,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-03-02T21:11:57.000Z","cur":"eth","u":13.33422,"ok":true,"war":null},{"i":1146,"c":"base","t":"take a photo in Turkey","a":0.0053,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-04-24T15:38:03.000Z","cur":"eth","u":13.08729,"ok":true,"war":null},{"i":223,"c":"arbitrum","t":"Japan verified 🇯🇵","a":0.0044,"ch":42161,"mp":true,"ip":true,"d":null,"ca":"2026-03-03T23:50:03.000Z","cur":"eth","u":10.86492,"ok":true,"war":null},{"i":224,"c":"arbitrum","t":"Germany verified 🇩🇪","a":0.0044,"ch":42161,"mp":true,"ip":true,"d":null,"ca":"2026-03-03T23:51:34.000Z","cur":"eth","u":10.86492,"ok":true,"war":null},{"i":222,"c":"arbitrum","t":"Mexico verified 🇲🇽","a":0.0044,"ch":42161,"mp":true,"ip":true,"d":null,"ca":"2026-03-03T23:48:45.000Z","cur":"eth","u":10.86492,"ok":true,"war":null},{"i":321,"c":"arbitrum","t":"Build a ship in a bottle ","a":0.00438,"ch":42161,"mp":true,"ip":true,"d":null,"ca":"2026-08-04T18:29:33.000Z","cur":"eth","u":10.81553,"ok":true,"war":null},{"i":1289,"c":"base","t":"MIKOS32 NEEDS A LITTLE HELP","a":0.004,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-07-12T15:32:51.000Z","cur":"eth","u":9.8772,"ok":true,"war":null},{"i":1301,"c":"base","t":"One Thing Web3 Fixed. One Thing It Broke.","a":0.0038,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-07-30T23:40:39.000Z","cur":"eth","u":9.38334,"ok":true,"war":null},{"i":1096,"c":"base","t":"Preach POIDH & We Them Media ","a":0.0034,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-03-21T19:12:21.000Z","cur":"eth","u":8.39562,"ok":true,"war":null},{"i":1149,"c":"base","t":"find poidh in Seattle 📍","a":0.0033,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-04-24T19:24:49.000Z","cur":"eth","u":8.14869,"ok":true,"war":null},{"i":305,"c":"arbitrum","t":"#busch4busch","a":0.0033,"ch":42161,"mp":true,"ip":true,"d":null,"ca":"2026-05-22T00:08:22.000Z","cur":"eth","u":8.14869,"ok":true,"war":null},{"i":1150,"c":"base","t":"find poidh in Seattle 📍","a":0.0033,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-04-24T19:25:57.000Z","cur":"eth","u":8.14869,"ok":true,"war":null},{"i":1333,"c":"base","t":"ZitiCashbox - send $1 to a user at the LATAM Digital Assets Conference","a":0.0029,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-08-21T15:25:25.000Z","cur":"eth","u":7.16097,"ok":true,"war":null},{"i":1152,"c":"base","t":"Louis posts beautiful Glia shell code","a":0.00255,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-04-28T21:11:55.000Z","cur":"eth","u":6.29672,"ok":true,"war":null},{"i":287,"c":"arbitrum","t":"Onchaindare","a":0.002,"ch":42161,"mp":true,"ip":true,"d":null,"ca":"2026-04-14T05:50:45.000Z","cur":"eth","u":4.9386,"ok":true,"war":null},{"i":1236,"c":"base","t":"make a split","a":0.001,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-06-11T23:42:03.000Z","cur":"eth","u":2.4693,"ok":true,"war":null},{"i":1128,"c":"base","t":"Show this code in public","a":0.001,"ch":8453,"mp":false,"ip":true,"d":null,"ca":"2026-04-04T08:38:33.000Z","cur":"eth","u":2.4693,"ok":true,"war":null},{"i":1237,"c":"base","t":"make a split","a":0.001,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-06-11T23:42:57.000Z","cur":"eth","u":2.4693,"ok":true,"war":null},{"i":1127,"c":"base","t":"Show this code in public","a":0.001,"ch":8453,"mp":false,"ip":true,"d":null,"ca":"2026-04-04T08:23:59.000Z","cur":"eth","u":2.4693,"ok":true,"war":null},{"i":1209,"c":"base","t":"Share $Space on X with screenshot — $5","a":0.001,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-06-11T19:12:13.000Z","cur":"eth","u":2.4693,"ok":true,"war":null},{"i":999,"c":"base","t":"Ramus Grove Stewardship","a":0.001,"ch":8453,"mp":false,"ip":true,"d":null,"ca":"2026-01-26T07:06:31.000Z","cur":"eth","u":2.4693,"ok":true,"war":null},{"i":1231,"c":"base","t":"Test bounty","a":0.001,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-06-11T23:29:21.000Z","cur":"eth","u":2.4693,"ok":true,"war":null},{"i":998,"c":"base","t":"Ramus Grove Stewardship","a":0.001,"ch":8453,"mp":false,"ip":true,"d":null,"ca":"2026-01-26T07:01:17.000Z","cur":"eth","u":2.4693,"ok":true,"war":null},{"i":997,"c":"base","t":"Clean a local green space","a":0.001,"ch":8453,"mp":false,"ip":true,"d":null,"ca":"2026-01-26T02:20:35.000Z","cur":"eth","u":2.4693,"ok":true,"war":null},{"i":1215,"c":"base","t":"Share $Space on X with screenshot — $5","a":0.001,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-06-11T19:13:35.000Z","cur":"eth","u":2.4693,"ok":true,"war":null},{"i":1233,"c":"base","t":"Test bounty","a":0.001,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-06-11T23:31:27.000Z","cur":"eth","u":2.4693,"ok":true,"war":null},{"i":1235,"c":"base","t":"Test bounty","a":0.001,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-06-11T23:34:01.000Z","cur":"eth","u":2.4693,"ok":true,"war":null},{"i":1116,"c":"base","t":"Random Act of Kindness - IRL Photo Bounty","a":0.001,"ch":8453,"mp":false,"ip":true,"d":null,"ca":"2026-04-02T19:39:49.000Z","cur":"eth","u":2.4693,"ok":true,"war":null},{"i":1124,"c":"base","t":"Show this code in public","a":0.001,"ch":8453,"mp":false,"ip":true,"d":null,"ca":"2026-04-04T06:46:49.000Z","cur":"eth","u":2.4693,"ok":true,"war":null},{"i":1232,"c":"base","t":"Test bounty","a":0.001,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-06-11T23:30:23.000Z","cur":"eth","u":2.4693,"ok":true,"war":null},{"i":1097,"c":"base","t":"The Hydration Check","a":0.001,"ch":8453,"mp":false,"ip":true,"d":null,"ca":"2026-03-22T04:50:33.000Z","cur":"eth","u":2.4693,"ok":true,"war":null},{"i":1222,"c":"base","t":"Share $Space on X with screenshot — $5","a":0.001,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-06-11T19:14:47.000Z","cur":"eth","u":2.4693,"ok":true,"war":null},{"i":1113,"c":"base","t":"Random Act of Kindness - IRL Photo Bounty","a":0.001,"ch":8453,"mp":false,"ip":true,"d":null,"ca":"2026-04-02T15:50:23.000Z","cur":"eth","u":2.4693,"ok":true,"war":null},{"i":1114,"c":"base","t":"Random Act of Kindness - IRL Photo Bounty","a":0.001,"ch":8453,"mp":false,"ip":true,"d":null,"ca":"2026-04-02T15:59:27.000Z","cur":"eth","u":2.4693,"ok":true,"war":null},{"i":1219,"c":"base","t":"Share $Space on X with screenshot — $5","a":0.001,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-06-11T19:14:15.000Z","cur":"eth","u":2.4693,"ok":true,"war":null},{"i":1045,"c":"base","t":"Make a Bounty","a":0.001,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-02-20T21:00:27.000Z","cur":"eth","u":2.4693,"ok":true,"war":null},{"i":1216,"c":"base","t":"Share $Space on X with screenshot — $5","a":0.001,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-06-11T19:13:47.000Z","cur":"eth","u":2.4693,"ok":true,"war":null},{"i":1324,"c":"base","t":"test2","a":0.001,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-08-19T02:15:29.000Z","cur":"eth","u":2.4693,"ok":true,"war":null},{"i":1223,"c":"base","t":"Share $Space on X with screenshot — $5","a":0.001,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-06-11T19:14:55.000Z","cur":"eth","u":2.4693,"ok":true,"war":null},{"i":1125,"c":"base","t":"Test Bounty","a":0.001,"ch":8453,"mp":false,"ip":true,"d":null,"ca":"2026-04-04T06:47:07.000Z","cur":"eth","u":2.4693,"ok":true,"war":null},{"i":1037,"c":"base","t":"test","a":0.001,"ch":8453,"mp":true,"ip":true,"d":null,"ca":"2026-02-18T01:43:45.000Z","cur":"eth","u":2.4693,"ok":true,"war":null},{"i":1382,"c":"degen","t":"secret menu item 27 chars plain words only by @mr94t3z","a":1000,"ch":666666666,"mp":true,"ip":true,"d":null,"ca":"2026-04-20T17:13:04.000Z","cur":"degen","u":1.03633,"ok":false,"war":"non-ETH currency"}]};
 <!--SNAPSHOT:END-->
 </script>
 <script>
 const CHAIN_NAME = { 1:'mainnet', 8453:'base', 42161:'arbitrum', 666666666:'degen' };
-const state = { q:'', chain:'', sort:'usd', hideIp:false };
+const CHAIN_CURRENCY = { 1:'eth', 8453:'eth', 42161:'eth', 666666666:'degen' };
+const state = { q:'', chain:'', sort:'usd', hideIp:false, hideOut:false };
 
+// Helpers with currency awareness
 function fmtEth(v){ return (v>=100? v.toFixed(1): v>=1? v.toFixed(3): v.toFixed(4)) + ' Ξ'; }
-function fmtUsd(v){ if(!SNAPSHOT.ethUsd) return null; const u=v*SNAPSHOT.ethUsd; return '$'+(u>=1000? Math.round(u).toLocaleString('en-US'): u.toFixed(0)); }
+function fmtDegen(v){ return (v>=100? v.toFixed(1): v.toFixed(2)) + ' DEGEN'; }
+function fmtUsdDirect(u){ return '$'+(u>=1000? Math.round(u).toLocaleString('en-US'): u.toFixed(0)); }
+function fmtUsdEth(v){
+  if(v==null || !SNAPSHOT.ethUsd) return null;
+  const u=v*SNAPSHOT.ethUsd;
+  return fmtUsdDirect(u);
+}
 function esc(s){ return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
+// Validate if bounty should be counted toward ETH headline
+function isEligible(b){
+  // Prefer snapshot's ok flag if present (authoritative builder validation)
+  if (b.ok !== undefined) return !!b.ok && b.cur==='eth';
+  // Fallback client-side heuristics for old snapshots
+  if (b.ch===666666666) return false; // degen never counts as ETH
+  if (b.a>10) return false;
+  if (b.war) return false;
+  return true;
+}
+function bountyUsd(b){
+  if (b.u != null && Number.isFinite(b.u)) return b.u;
+  if (b.cur==='eth' && SNAPSHOT.ethUsd) return b.a*SNAPSHOT.ethUsd;
+  return null;
+}
+function bountyDisplay(b){
+  // Returns {ethStr, usdStr, tokenStr}
+  if (b.cur==='degen') {
+    const usd = b.u!=null? fmtUsdDirect(b.u) : '';
+    return { main: fmtDegen(b.a), sub: usd? '≈ '+usd : '', token: 'DEGEN' };
+  } else if (b.cur==='unknown') {
+    return { main: b.a? fmtEth(b.a): '—', sub: b.u? '≈ '+fmtUsdDirect(b.u):'', token:'unknown' };
+  } else {
+    const usd = bountyUsd(b);
+    return { main: fmtEth(b.a), sub: usd? '≈ '+fmtUsdDirect(usd):'', token:'ETH' };
+  }
+}
+
 function init(){
+  // Headline totals: only verified eligible ETH records
+  const eligible = SNAPSHOT.bounties.filter(isEligible);
+  const ethTot = eligible.reduce((s,b)=>s+b.a,0);
+  const usdTot = eligible.reduce((s,b)=>{ const u=bountyUsd(b); return s + (u||0); },0);
+  // Fallback: if snapshot provides precomputed totals, use them (authoritative)
+  const headlineEth = SNAPSHOT.ethTotal!=null ? SNAPSHOT.ethTotal : ethTot;
+  const headlineUsd = SNAPSHOT.usdTotal!=null ? SNAPSHOT.usdTotal : usdTot;
+
   document.getElementById('stCount').textContent = SNAPSHOT.count;
-  const tot = SNAPSHOT.bounties.reduce((s,b)=>s+b.a,0);
-  document.getElementById('stEth').textContent = fmtEth(tot);
-  document.getElementById('stUsd').textContent = SNAPSHOT.ethUsd ? '$'+Math.round(tot*SNAPSHOT.ethUsd).toLocaleString('en-US') : 'n/a';
+  document.getElementById('stEth').textContent = fmtEth(headlineEth);
+  document.getElementById('stUsd').textContent = fmtUsdDirect(headlineUsd);
+
   const gen = new Date(SNAPSHOT.generatedAt);
   const mins = Math.round((Date.now()-gen)/60000);
-  document.getElementById('snapAge').textContent = `snapshot: ${SNAPSHOT.count} bounties • ${mins<90? mins+' min': Math.round(mins/60)+' h'} old • eth=$${SNAPSHOT.ethUsd}`;
+  const eligibleNote = SNAPSHOT.eligibleCount!=null ? `${SNAPSHOT.eligibleCount} eligible for ETH totals` : `${eligible.length} eligible`;
+  const outlierNote = SNAPSHOT.outlierCount? `, ${SNAPSHOT.outlierCount} outlier`+(SNAPSHOT.outlierCount>1?'s':'')+' excluded' : '';
+  document.getElementById('snapAge').textContent = `snapshot: ${SNAPSHOT.count} bounties (${eligibleNote}${outlierNote}) • ${mins<90? mins+' min': Math.round(mins/60)+' h'} old • eth=$${SNAPSHOT.ethUsd}`;
+  document.getElementById('verifyLine').textContent = `verified ETH: ${fmtEth(headlineEth)} ≈ ${fmtUsdDirect(headlineUsd)}`;
+
+  // Outlier banner if any
+  const outliers = SNAPSHOT.bounties.filter(b=>!isEligible(b) && b.war);
+  if(outliers.length){
+    const banner=document.getElementById('outlierBanner');
+    const eg=outliers.slice(0,2).map(b=>`#${b.i} “${b.t.slice(0,40)}…” — ${b.cur} ${b.a} (${b.war})`).join(' • ');
+    banner.textContent = `⚠️ ${outliers.length} outlier`+(outliers.length>1?'s':'')+` excluded from ETH totals (e.g. ${eg}). They remain visible below with ⚠️ — not counted toward headline.`;
+    banner.classList.add('show');
+  }
+
   const cs = [...new Set(SNAPSHOT.bounties.map(b=>CHAIN_NAME[b.ch]))];
   const sel = document.getElementById('chainSel');
   for(const c of cs){ const o=document.createElement('option'); o.value=c; o.textContent=c; sel.appendChild(o); }
@@ -126,6 +192,7 @@ function init(){
   document.getElementById('sort').addEventListener('change',e=>{state.sort=e.target.value;render();});
   sel.addEventListener('change',e=>{state.chain=e.target.value;render();});
   document.getElementById('hideIp').addEventListener('click',e=>{state.hideIp=!state.hideIp;e.target.classList.toggle('on');render();});
+  document.getElementById('hideOut').addEventListener('click',e=>{state.hideOut=!state.hideOut;e.target.classList.toggle('on');render();});
   render();
   routeFromHash();
   let suppressHash=false;
@@ -136,10 +203,15 @@ function visible(){
   let arr = SNAPSHOT.bounties.filter(b=>{
     if(state.chain && CHAIN_NAME[b.ch]!==state.chain) return false;
     if(state.hideIp && b.ip) return false;
+    if(state.hideOut && !isEligible(b)) return false;
     if(state.q && !b.t.toLowerCase().includes(state.q)) return false;
     return true;
   });
-  if(state.sort==='usd') arr.sort((x,y)=>y.a-x.a);
+  if(state.sort==='usd') arr.sort((x,y)=>{
+    const xv = x.u!=null? x.u : (x.cur==='eth'? x.a*(SNAPSHOT.ethUsd||0):0);
+    const yv = y.u!=null? y.u : (y.cur==='eth'? y.a*(SNAPSHOT.ethUsd||0):0);
+    return yv - xv;
+  });
   else if(state.sort==='new'){ const ts=b=>b.ca?Date.parse(b.ca):0; arr.sort((x,y)=>ts(y)-ts(x)); }
   else { const dl=b=>b.d?Date.parse(b.d):Infinity; arr.sort((x,y)=>dl(x)-dl(y)); }
   return arr;
@@ -151,22 +223,28 @@ function render(){
   const ol = document.getElementById('list');
   ol.innerHTML='';
   for(const b of arr){
-    const li=document.createElement('li'); li.className='b'; li.id='b-'+b.i;
-    const usd=fmtUsd(b.a);
+    const li=document.createElement('li'); li.className='b'+(!isEligible(b) && b.war?' outlier':''); li.id='b-'+b.i;
+    const disp = bountyDisplay(b);
+    const eligible = isEligible(b);
     let dl='';
     if(b.d){ const ms=Date.parse(b.d)-Date.now();
       dl = ms>0 ? `<span class="tag warn">ends in ${humanize(ms)}</span>` : `<span class="tag">ended</span>`;
     }
+    const outlierTag = b.war ? `<span class="tag outlier" title="${esc(b.war)}">⚠️ outlier: ${esc(b.war)}</span>` : '';
+    const curTag = b.cur? `<span class="tag">${esc(b.cur)}</span>` : '';
     li.innerHTML=`
       <div class="rowtop">
         <span class="t" data-id="${b.i}">${esc(b.t)}</span>
-        <span class="val"><span class="eth">${fmtEth(b.a)}</span><br><span class="usd">${usd? '≈ '+usd : ''}</span></span>
+        <span class="val"><span class="eth">${esc(disp.main)}</span><br><span class="usd">${esc(disp.sub)}</span></span>
       </div>
       <div class="tags">
         <span class="tag chain-${CHAIN_NAME[b.ch]}">${CHAIN_NAME[b.ch]}</span>
+        ${curTag}
         ${b.mp?'<span class="tag">multiplayer</span>':''}
         ${b.ip?'<span class="tag">in progress</span>':''}
         ${dl}
+        ${outlierTag}
+        ${!eligible && !b.war ? '<span class="tag bad">excluded</span>':''}
         <span class="tag" data-live="${b.i}">live: idle</span>
       </div>
       <div class="drawer" id="d-${b.i}"></div>`;
@@ -186,12 +264,11 @@ async function toggle(b){
   const d=document.getElementById('d-'+b.i);
   const already=d.classList.contains('open');
   document.querySelectorAll('.drawer.open').forEach(x=>x.classList.remove('open'));
-  if(already){ suppressHash=true; location.hash=''; return; }
+  if(already){ history.replaceState(null,'',location.pathname); return; }
   d.classList.add('open');
-  suppressHash=true;
-  location.hash='b/'+CHAIN_NAME[b.ch]+'/'+b.i;
+  history.replaceState(null,'',`#b/${CHAIN_NAME[b.ch]}/${b.i}`);
   d.innerHTML='<div class="skel">loading…</div>';
-  location.hash='b/'+CHAIN_NAME[b.ch]+'/'+b.i;
+  let suppressHash=false;
   setTimeout(()=>suppressHash=false,0);
   const lt=document.querySelector(`[data-live="${b.i}"]`);
   try{
@@ -199,14 +276,31 @@ async function toggle(b){
     if(!r.ok) throw new Error('HTTP '+r.status);
     const j=await r.json();
     lt.textContent='live: ok'; lt.className='tag live-ok';
-    const amt=j.amount!=null? Number(BigInt(j.amount))/1e18 : b.a;
+    // Authoritative live amount with currency awareness
+    const liveRaw = j.amount;
+    const liveCur = (j.currency || b.cur || 'eth').toLowerCase();
+    const liveAmt = liveRaw!=null? Number(BigInt(liveRaw))/1e18 : b.a;
+    const liveUsd = j.priceUsd!=null? Number(j.priceUsd) : (j.amountSort!=null? Number(j.amountSort) : (liveCur==='eth' && SNAPSHOT.ethUsd ? liveAmt*SNAPSHOT.ethUsd : null));
+    let liveStr='';
+    if(liveCur==='degen') liveStr = `${liveAmt.toFixed(2)} DEGEN${liveUsd!=null?' ≈ '+fmtUsdDirect(liveUsd):''} (chain: degen)`;
+    else if(liveCur==='eth') liveStr = `${fmtEth(liveAmt)}${liveUsd!=null?' ≈ '+fmtUsdDirect(liveUsd):''}`;
+    else liveStr = `${liveAmt} ${liveCur}${liveUsd!=null?' ≈ '+fmtUsdDirect(liveUsd):''}`;
+
+    // Detect snapshot mis-denomination vs live
+    let mismatch='';
+    if(b.cur!==liveCur) mismatch = `<div class="meta-line" style="color:var(--warn)">snapshot currency was ${esc(b.cur||'unknown')}, live is ${esc(liveCur)} — use live value as authoritative.</div>`;
+    else if(b.cur==='eth' && Math.abs(liveAmt-b.a)>1e-9) mismatch = `<div class="meta-line">live amount: ${esc(liveStr)} (snapshot was ${esc(bountyDisplay(b).main)})</div>`;
+    else if(b.cur==='degen' && Math.abs(liveAmt-b.a)>1e-9) mismatch = `<div class="meta-line">live amount: ${esc(liveStr)}</div>`;
+    // For eligible ETH bounties, show live if diff
+    const showLive = mismatch || (liveCur==='eth' && Math.abs(liveAmt-b.a)>1e-9);
     d.innerHTML=`
+      ${showLive? mismatch || `<div class="meta-line">live amount: ${esc(liveStr)}</div>` : `<div class="meta-line">live amount: ${esc(liveStr)} ${liveCur==='degen'?'— not counted toward ETH headline':''}</div>`}
       <div class="desc">${esc((j.description||'').slice(0,4000))}</div>
       <div class="btns">
         <a class="btn" href="https://poidh.xyz/${CHAIN_NAME[b.ch]}/bounty/${b.i}" target="_blank" rel="noopener">Open on poidh.xyz to claim ↗</a>
         <button class="btn sec" onclick="navigator.clipboard.writeText(location.origin+location.pathname+'#b/${CHAIN_NAME[b.ch]}/${b.i}')">copy deep-link</button>
       </div>`;
-    if(Math.abs(amt-b.a)>1e-9){ d.insertAdjacentHTML('afterbegin',`<div class="meta-line">live amount: ${fmtEth(amt)}${SNAPSHOT.ethUsd? ' ≈ $'+Math.round(amt*SNAPSHOT.ethUsd).toLocaleString('en-US'):''}</div>`); }
+    if(b.war) d.insertAdjacentHTML('afterbegin',`<div class="meta-line" style="color:var(--warn)">⚠️ snapshot flagged as outlier (${esc(b.war)}) — excluded from ETH headline; live value above is authoritative.</div>`);
   }catch(e){
     lt.textContent='live: failed'; lt.className='tag';
     d.innerHTML=`<div class="skel">live fetch failed (${esc(String(e).slice(0,80))}) — snapshot only. Open on poidh.xyz for current state.</div>
